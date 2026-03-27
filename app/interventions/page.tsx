@@ -8,68 +8,76 @@ import { useState, useEffect } from 'react';
 
 const initialInterventions = [
   {
-    client: 'Karim Dupont',
+    id: 'int1',
+    clientId: '2',
     vehicle: 'Yamaha XMAX 300',
     type: 'Révision complète',
     status: 'En cours',
     date: '25/03/2026',
-    price: '120€',
+    price: 120,
   },
   {
-    client: 'Sami Trabelsi',
+    id: 'int2',
+    clientId: '3',
     vehicle: 'Piaggio Liberty 125',
     type: 'Vidange & freinage',
     status: 'Terminé',
     date: '23/03/2026',
-    price: '85€',
+    price: 85,
   },
   {
-    client: 'Ahmed Ben Ali',
+    id: 'int3',
+    clientId: '1',
     vehicle: 'TMAX 125',
     type: 'Réparation embrayage',
     status: 'En cours',
     date: '26/03/2026',
-    price: '230€',
+    price: 230,
   },
   {
-    client: 'Youssef Martin',
+    id: 'int4',
+    clientId: '4',
     vehicle: 'Honda PCX 125',
     type: 'Batterie & électrique',
     status: 'Terminé',
     date: '22/03/2026',
-    price: '65€',
+    price: 65,
   },
   {
-    client: 'Fatima Zahra',
+    id: 'int5',
+    clientId: '5',
     vehicle: 'Kymco Agility 125',
     type: 'Réparation freins',
     status: 'En cours',
     date: '24/03/2026',
-    price: '95€',
+    price: 95,
   },
   {
-    client: 'Mohamed Alami',
+    id: 'int6',
+    clientId: '6',
     vehicle: 'Peugeot Tweet 125',
     type: 'Changement pneus',
     status: 'Planifié',
     date: '27/03/2026',
-    price: '150€',
+    price: 150,
   },
   {
-    client: 'Leila Bouazza',
+    id: 'int7',
+    clientId: '7',
     vehicle: 'Sym Symphony 125',
     type: 'Révision distribution',
     status: 'En cours',
     date: '26/03/2026',
-    price: '180€',
+    price: 180,
   },
   {
-    client: 'Nadia El Mansouri',
+    id: 'int8',
+    clientId: '8',
     vehicle: 'Honda Forza 300',
     type: 'Contrôle technique',
     status: 'Terminé',
     date: '20/03/2026',
-    price: '45€',
+    price: 45,
   },
 ];
 
@@ -81,17 +89,28 @@ const statusStyles: Record<string, string> = {
 
 export default function InterventionsPage() {
   const [interventions, setInterventions] = useState(initialInterventions);
+  const [clients, setClients] = useState<any[]>([]);
   const [selectedIntervention, setSelectedIntervention] = useState<typeof initialInterventions[0] | null>(null);
   const [isNewInterventionOpen, setIsNewInterventionOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [interventionForm, setInterventionForm] = useState({ client: '', vehicle: '', type: '', price: '', date: '' });
   const [garageName, setGarageName] = useState('2roues Pasteur');
 
+  const getClientName = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    return client ? client.name : 'Client inconnu';
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('interventions');
     if (stored) {
       try { setInterventions(JSON.parse(stored)); } catch { }
+    }
+
+    const savedClients = localStorage.getItem('clients');
+    if (savedClients) {
+      try { setClients(JSON.parse(savedClients)); } catch { }
     }
 
     const savedParams = localStorage.getItem('params');
@@ -127,12 +146,13 @@ export default function InterventionsPage() {
       return;
     }
     const newIntervention = {
-      client: interventionForm.client,
+      id: Date.now().toString(),
+      clientId: interventionForm.client,
       vehicle: interventionForm.vehicle,
       type: interventionForm.type,
       status: 'En cours',
       date: interventionForm.date,
-      price: `${interventionForm.price}€`,
+      price: parseFloat(interventionForm.price),
     };
     setInterventions((prev) => [newIntervention, ...prev]);
     setInterventionForm({ client: '', vehicle: '', type: '', price: '', date: '' });
@@ -169,12 +189,12 @@ export default function InterventionsPage() {
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {interventions.map((intervention, idx) => (
               <article
-                key={`${intervention.client}-${idx}`}
+                key={`${intervention.id}-${idx}`}
                 className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200 group"
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex-1">
-                    <h2 className="font-medium text-gray-900 text-sm">{intervention.client}</h2>
+                    <h2 className="font-medium text-gray-900 text-sm">{getClientName(intervention.clientId)}</h2>
                     <p className="text-xs text-gray-500 mt-0.5">{intervention.vehicle}</p>
                     <p className="mt-2 text-xs font-medium text-gray-700">{intervention.type}</p>
                   </div>
@@ -194,7 +214,7 @@ export default function InterventionsPage() {
                   </span>
                   <span className="flex items-center gap-2 font-semibold text-gray-900">
                     <span>💰</span>
-                    {intervention.price}
+                    {intervention.price}€
                   </span>
                 </div>
 
@@ -231,11 +251,11 @@ export default function InterventionsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails de l'intervention</h3>
-            <p className="text-sm text-gray-600">Client: <span className="font-medium text-gray-900">{selectedIntervention.client}</span></p>
+            <p className="text-sm text-gray-600">Client: <span className="font-medium text-gray-900">{getClientName(selectedIntervention.clientId)}</span></p>
             <p className="text-sm text-gray-600">Véhicule: <span className="font-medium text-gray-900">{selectedIntervention.vehicle}</span></p>
             <p className="text-sm text-gray-600">Type: <span className="font-medium text-gray-900">{selectedIntervention.type}</span></p>
             <p className="text-sm text-gray-600">Date: <span className="font-medium text-gray-900">{selectedIntervention.date}</span></p>
-            <p className="text-sm text-gray-600">Prix: <span className="font-medium text-gray-900">{selectedIntervention.price}</span></p>
+            <p className="text-sm text-gray-600">Prix: <span className="font-medium text-gray-900">{selectedIntervention.price}€</span></p>
             <p className="text-sm text-gray-600">Statut: <span className="font-medium text-gray-900">{selectedIntervention.status}</span></p>
             <button
               onClick={() => setSelectedIntervention(null)}
@@ -271,12 +291,16 @@ export default function InterventionsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-            <input
+            <select
               value={interventionForm.client}
               onChange={(e) => setInterventionForm({ ...interventionForm, client: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
-              placeholder="Nom du client"
-            />
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white transition-all duration-200"
+            >
+              <option value="">Sélectionner un client</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>{client.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>

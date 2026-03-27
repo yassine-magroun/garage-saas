@@ -18,7 +18,7 @@ export default function Sidebar({ activePage, garageName }: { activePage: 'dashb
   ];
 
   return (
-    <aside className="hidden md:flex md:w-64 flex-col bg-white border-r border-gray-100">
+    <aside className="hidden md:flex md:w-64 flex-col bg-white border-r border-gray-100 h-screen sticky top-0">
       <div className="px-6 py-4 border-b border-gray-100">
         <h1 className="text-lg font-semibold text-gray-900">{garageName || '2roues Pasteur'}</h1>
         <p className="text-xs text-gray-500 mt-1">Gestion garage</p>

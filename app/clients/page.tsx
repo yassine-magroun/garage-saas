@@ -7,16 +7,16 @@ import { Search, Phone, Truck, UserCheck, Eye, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const initialClients = [
-  { name: 'Ahmed Ben Ali', phone: '06 11 22 33 44', vehicle: 'TMAX 125', lastVisit: 2 },
-  { name: 'Karim Dupont', phone: '06 55 44 33 22', vehicle: 'Yamaha XMAX 300', lastVisit: 5 },
-  { name: 'Sami Trabelsi', phone: '07 77 66 55 44', vehicle: 'Piaggio Liberty 125', lastVisit: 8 },
-  { name: 'Youssef Martin', phone: '06 99 88 77 66', vehicle: 'Honda PCX 125', lastVisit: 12 },
-  { name: 'Fatima Zahra', phone: '06 44 55 66 77', vehicle: 'Kymco Agility 125', lastVisit: 3 },
-  { name: 'Mohamed Alami', phone: '07 22 33 44 55', vehicle: 'Peugeot Tweet 125', lastVisit: 15 },
-  { name: 'Leila Bouazza', phone: '06 88 77 66 55', vehicle: 'Sym Symphony 125', lastVisit: 7 },
-  { name: 'Nadia El Mansouri', phone: '07 11 22 33 44', vehicle: 'Honda Forza 300', lastVisit: 1 },
-  { name: 'Rachid Tazi', phone: '06 66 77 88 99', vehicle: 'Piaggio MP3 300', lastVisit: 9 },
-  { name: 'Sofia Bennani', phone: '07 55 44 33 22', vehicle: 'Kymco Xciting 400', lastVisit: 4 },
+  { id: '1', name: 'Ahmed Ben Ali', phone: '06 11 22 33 44', vehicle: 'TMAX 125', immatriculation: 'AA-123-BB', vip: false, lastVisit: 2 },
+  { id: '2', name: 'Karim Dupont', phone: '06 55 44 33 22', vehicle: 'Yamaha XMAX 300', immatriculation: 'BB-456-CC', vip: true, lastVisit: 5 },
+  { id: '3', name: 'Sami Trabelsi', phone: '07 77 66 55 44', vehicle: 'Piaggio Liberty 125', immatriculation: 'CC-789-DD', vip: false, lastVisit: 8 },
+  { id: '4', name: 'Youssef Martin', phone: '06 99 88 77 66', vehicle: 'Honda PCX 125', immatriculation: 'DD-101-EE', vip: false, lastVisit: 12 },
+  { id: '5', name: 'Fatima Zahra', phone: '06 44 55 66 77', vehicle: 'Kymco Agility 125', immatriculation: 'EE-202-FF', vip: true, lastVisit: 3 },
+  { id: '6', name: 'Mohamed Alami', phone: '07 22 33 44 55', vehicle: 'Peugeot Tweet 125', immatriculation: 'FF-303-GG', vip: false, lastVisit: 15 },
+  { id: '7', name: 'Leila Bouazza', phone: '06 88 77 66 55', vehicle: 'Sym Symphony 125', immatriculation: 'GG-404-HH', vip: false, lastVisit: 7 },
+  { id: '8', name: 'Nadia El Mansouri', phone: '07 11 22 33 44', vehicle: 'Honda Forza 300', immatriculation: 'HH-505-II', vip: true, lastVisit: 1 },
+  { id: '9', name: 'Rachid Tazi', phone: '06 66 77 88 99', vehicle: 'Piaggio MP3 300', immatriculation: 'II-606-JJ', vip: false, lastVisit: 9 },
+  { id: '10', name: 'Sofia Bennani', phone: '07 55 44 33 22', vehicle: 'Kymco Xciting 400', immatriculation: 'JJ-707-KK', vip: false, lastVisit: 4 },
 ];
 
 const initialStats = [
@@ -31,7 +31,7 @@ export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<typeof initialClients[0] | null>(null);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [clientForm, setClientForm] = useState({ name: '', phone: '', vehicle: '', vip: false });
+  const [clientForm, setClientForm] = useState({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
   const [garageName, setGarageName] = useState('2roues Pasteur');
 
   useEffect(() => {
@@ -77,14 +77,16 @@ export default function ClientsPage() {
       return;
     }
     const newClient = {
+      id: Date.now().toString(),
       name: clientForm.name,
       phone: clientForm.phone,
       vehicle: clientForm.vehicle,
-      lastVisit: 0,
+      immatriculation: clientForm.immatriculation || '',
       vip: clientForm.vip,
+      lastVisit: 0,
     };
     setClients((prev) => [newClient, ...prev]);
-    setClientForm({ name: '', phone: '', vehicle: '', vip: false });
+    setClientForm({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
     setIsAddClientOpen(false);
     setToast({ message: 'Client ajouté avec succès !', type: 'success' });
     setTimeout(() => setToast(null), 3000);
@@ -218,6 +220,8 @@ export default function ClientsPage() {
             <p className="text-sm text-gray-600">Nom : <span className="font-medium text-gray-900">{selectedClient.name}</span></p>
             <p className="text-sm text-gray-600">Téléphone : <span className="font-medium text-gray-900">{selectedClient.phone}</span></p>
             <p className="text-sm text-gray-600">Véhicule : <span className="font-medium text-gray-900">{selectedClient.vehicle}</span></p>
+            <p className="text-sm text-gray-600">Immatriculation : <span className="font-medium text-gray-900">{selectedClient.immatriculation || 'Non spécifiée'}</span></p>
+            <p className="text-sm text-gray-600">VIP : <span className="font-medium text-gray-900">{selectedClient.vip ? 'Oui' : 'Non'}</span></p>
             <p className="text-sm text-gray-600">Dernière visite : <span className="font-medium text-gray-900">il y a {selectedClient.lastVisit} jours</span></p>
             <button
               onClick={() => setSelectedClient(null)}
@@ -273,6 +277,15 @@ export default function ClientsPage() {
               value={clientForm.vehicle}
               onChange={(e) => setClientForm({ ...clientForm, vehicle: e.target.value })}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
+            <input
+              value={clientForm.immatriculation}
+              onChange={(e) => setClientForm({ ...clientForm, immatriculation: e.target.value })}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
+              placeholder="Ex: AA-123-BB"
             />
           </div>
           <div className="flex items-center gap-2">
