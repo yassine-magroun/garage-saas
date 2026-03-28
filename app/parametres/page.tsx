@@ -1,8 +1,10 @@
 'use client';
 
-import Sidebar from '../components/Sidebar';
+import Link from 'next/link';
+import PageLayout from '../components/PageLayout';
+import { setDarkTheme } from '../components/ThemeProvider';
 import Toast from '../components/Toast';
-import { Save, User, Bell, Shield, Palette } from 'lucide-react';
+import { Save, User, Bell, Shield, Palette, ArrowLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function ParametresPage() {
@@ -16,46 +18,69 @@ export default function ParametresPage() {
     language: 'fr'
   });
 
+  const [settingsErrors, setSettingsErrors] = useState<{ garageName?: string; phone?: string; email?: string }>({});
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('params');
     if (stored) {
-      try { setSettings(JSON.parse(stored)); } catch { }
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed?.darkMode !== undefined) {
+          setDarkTheme(parsed.darkMode);
+        }
+        setSettings(parsed);
+      } catch { }
     }
   }, []);
 
   const saveSettings = () => {
+    const errors: typeof settingsErrors = {};
+    if (!settings.garageName.trim()) errors.garageName = 'Nom du garage requis';
+    if (!settings.phone.trim()) errors.phone = 'Téléphone requis';
+    if (!settings.email.trim()) errors.email = 'Email requis';
+    if (settings.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email)) errors.email = 'Email invalide';
+
+    setSettingsErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setToast({ message: 'Merci de corriger les erreurs avant sauvegarde', type: 'error' });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem('params', JSON.stringify(settings));
     }
+    setDarkTheme(settings.darkMode);
     setToast({ message: 'Paramètres sauvegardés avec succès !', type: 'success' });
     setTimeout(() => setToast(null), 3000);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar activePage="parametres" garageName={settings.garageName} />
-
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-100 px-8 py-5">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-semibold text-gray-900">Paramètres</h1>
-              <p className="text-sm text-gray-500 mt-1">Configurez votre application garage</p>
-            </div>
-            <button
-              onClick={saveSettings}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium text-sm shadow-sm"
-            >
-              <Save className="w-4 h-4" />
-              Sauvegarder
-            </button>
+    <>
+      <PageLayout activePage="parametres" garageName={settings.garageName}>
+        <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-4 md:px-8 py-4 md:py-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link href="/" className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-sm">
+              <ArrowLeft className="w-4 h-4" />
+              Retour
+            </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-slate-100">Paramètres</h1>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-slate-300 mt-1">Configurez votre application garage</p>
           </div>
-        </header>
+          <button
+            onClick={saveSettings}
+            className="inline-flex items-center gap-2 px-4 py-2.5 md:px-5 md:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium text-sm shadow-sm"
+          >
+            <Save className="w-4 h-4" />
+            Sauvegarder
+          </button>
+        </div>
+      </header>
 
-        <main className="flex-1 p-8 space-y-8">
+      <main className="flex-1 p-4 md:p-8 space-y-8">
           {/* Informations garage */}
           <div className="bg-white border border-gray-100 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-6">
@@ -161,7 +186,11 @@ export default function ParametresPage() {
                   <input
                     type="checkbox"
                     checked={settings.darkMode}
-                    onChange={(e) => setSettings({ ...settings, darkMode: e.target.checked })}
+                    onChange={(e) => {
+                      const next = { ...settings, darkMode: e.target.checked };
+                      setSettings(next);
+                      setDarkTheme(next.darkMode);
+                    }}
                     className="sr-only peer"
                   />
                   <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -204,9 +233,9 @@ export default function ParametresPage() {
             </div>
           </div>
         </main>
-      </div>
+      </PageLayout>
 
       <Toast toast={toast} />
-    </div>
+    </>
   );
 }

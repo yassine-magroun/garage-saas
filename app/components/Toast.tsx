@@ -12,14 +12,14 @@ export default function Toast({ toast }: { toast: ToastData | null }) {
       <div
         className={`px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 ${
           toast.type === 'success'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : 'bg-red-50 border-red-200 text-red-800'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-emerald-900 dark:border-emerald-700 dark:text-emerald-200'
+            : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900 dark:border-red-700 dark:text-red-200'
         }`}
       >
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full ${
-              toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+              toast.type === 'success' ? 'bg-green-500 dark:bg-emerald-300' : 'bg-red-500 dark:bg-red-300'
             }`}
           />
           <p className="text-sm font-medium">{toast.message}</p>

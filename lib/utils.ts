@@ -182,3 +182,24 @@ export const storage = {
     }
   },
 };
+
+export const theme = {
+  apply: (isDark: boolean) => {
+    if (typeof window === 'undefined') return;
+    document.documentElement.classList.toggle('dark', isDark);
+  },
+
+  load: (): boolean => {
+    if (typeof window === 'undefined') return false;
+    const params = storage.get<Record<string, any>>('params', {});
+    return Boolean(params?.darkMode);
+  },
+
+  set: (isDark: boolean) => {
+    if (typeof window === 'undefined') return;
+    const params = storage.get<Record<string, any>>('params', {});
+    const nextParams = { ...params, darkMode: isDark };
+    storage.set('params', nextParams);
+    theme.apply(isDark);
+  },
+};

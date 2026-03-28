@@ -98,7 +98,7 @@ export default function HomePage() {
 
   return (
     <PageLayout activePage="dashboard" garageName={garageName}>
-      <header className="bg-white border-b border-gray-100 px-4 md:px-8 py-4 md:py-5 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-4 md:px-8 py-4 md:py-5 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">Tableau de bord</h1>
@@ -116,7 +116,7 @@ export default function HomePage() {
       <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
         {/* KPI Cards - Responsive Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-          <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-lg md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 md:p-6 hover:shadow-md transition-all duration-300">
             <div className="flex flex-col gap-3">
               <div className="p-2 bg-blue-50 rounded-lg w-fit">
                 <Receipt className="w-4 md:w-5 h-4 md:h-5 text-blue-600" />
@@ -128,7 +128,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-lg md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 md:p-6 hover:shadow-md transition-all duration-300">
             <div className="flex flex-col gap-3">
               <div className="p-2 bg-emerald-50 rounded-lg w-fit">
                 <Euro className="w-4 md:w-5 h-4 md:h-5 text-emerald-600" />
@@ -140,7 +140,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-lg md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 md:p-6 hover:shadow-md transition-all duration-300">
             <div className="flex flex-col gap-3">
               <div className="p-2 bg-amber-50 rounded-lg w-fit">
                 <Clock className="w-4 md:w-5 h-4 md:h-5 text-amber-600" />
@@ -152,7 +152,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-lg md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 md:p-6 hover:shadow-md transition-all duration-300">
             <div className="flex flex-col gap-3">
               <div className="p-2 bg-purple-50 rounded-lg w-fit">
                 <Users className="w-4 md:w-5 h-4 md:h-5 text-purple-600" />

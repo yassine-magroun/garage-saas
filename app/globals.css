@@ -5,6 +5,11 @@
   --foreground: #1f2937;
 }
 
+html.dark {
+  --background: #030712;
+  --foreground: #f8fafc;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
