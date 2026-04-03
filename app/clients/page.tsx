@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import PageLayout from '../components/PageLayout';
+import Sidebar from '../components/Sidebar';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
-import { Search, Phone, Truck, UserCheck, Eye, Plus, ArrowLeft } from 'lucide-react';
+import { Search, Phone, Truck, UserCheck, Eye, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const initialClients = [
@@ -33,7 +32,6 @@ export default function ClientsPage() {
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [clientForm, setClientForm] = useState({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
-  const [clientErrors, setClientErrors] = useState<{ name?: string; phone?: string; vehicle?: string; email?: string }>({});
   const [garageName, setGarageName] = useState('2roues Pasteur');
 
   useEffect(() => {
@@ -73,20 +71,11 @@ export default function ClientsPage() {
   };
 
   const handleCreateClient = () => {
-    const errors: typeof clientErrors = {};
-
-    if (!clientForm.name.trim()) errors.name = 'Nom obligatoire';
-    if (!clientForm.phone.trim()) errors.phone = 'Téléphone obligatoire';
-    if (!clientForm.vehicle.trim()) errors.vehicle = 'Véhicule obligatoire';
-
-    setClientErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
-      setToast({ message: 'Veuillez corriger les champs avant enregistrement', type: 'error' });
+    if (!clientForm.name || !clientForm.phone || !clientForm.vehicle) {
+      setToast({ message: 'Tous les champs sont nécessaires', type: 'error' });
       setTimeout(() => setToast(null), 3000);
       return;
     }
-
     const newClient = {
       id: Date.now().toString(),
       name: clientForm.name,
@@ -96,43 +85,35 @@ export default function ClientsPage() {
       vip: clientForm.vip,
       lastVisit: 0,
     };
-
     setClients((prev) => [newClient, ...prev]);
     setClientForm({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
-    setClientErrors({});
     setIsAddClientOpen(false);
     setToast({ message: 'Client ajouté avec succès !', type: 'success' });
     setTimeout(() => setToast(null), 3000);
   };
 
   return (
-    <PageLayout activePage="clients" garageName={garageName}>
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-4 md:px-8 py-4 md:py-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-300">
-            <Link href="/" className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Link>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-slate-100">Clients</h1>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-slate-300 mt-1">Gérez vos clients</p>
-          </div>
-          <button
-            onClick={() => setIsAddClientOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 md:px-5 md:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium text-sm shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar activePage="clients" garageName={garageName} />
 
-      <main className="flex-1 p-4 md:p-8 space-y-8">
+      <div className="flex-1 flex flex-col">
+        <header className="bg-white border-b border-gray-100 px-8 py-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-semibold text-gray-900">Clients</h1>
+              <p className="text-sm text-gray-500 mt-1">Gérez vos clients</p>
+            </div>
+            <button onClick={() => setIsAddClientOpen(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium text-sm shadow-sm">
+              <Plus className="w-4 h-4" />
+              Ajouter
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 p-8 space-y-8">
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {stats.map((stat) => (
-              <div key={stat.title} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-lg p-6 hover:shadow-md transition-all duration-200">
+              <div key={stat.title} className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <span className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg}`}>
@@ -144,9 +125,9 @@ export default function ClientsPage() {
             ))}
           </section>
 
-          <section className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-lg p-6">
+          <section className="bg-white border border-gray-100 rounded-lg p-6">
             <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 dark:text-slate-300 absolute left-4 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Rechercher un client, un téléphone ou un véhicule"
@@ -155,8 +136,8 @@ export default function ClientsPage() {
             </div>
           </section>
 
-          <section className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-6">Actions rapides</h2>
+          <section className="bg-white border border-gray-100 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Actions rapides</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button onClick={() => setIsAddClientOpen(true)} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 shadow-sm">
                 <Plus className="w-4 h-4" />
@@ -225,25 +206,26 @@ export default function ClientsPage() {
             })}
           </section>
 
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-8 text-sm text-gray-500 dark:text-slate-300 hover:shadow-md hover:border-gray-200 dark:hover:border-slate-600 transition-all duration-300">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-sm text-gray-500 hover:shadow-md hover:border-gray-200 transition-all duration-300">
             <p className="font-semibold text-gray-700">Résumé</p>
             <p className="mt-2">{clients.length} clients affichés</p>
           </div>
         </main>
+      </div>
 
       {selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 w-full max-w-sm shadow-lg border border-gray-100 dark:border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Fiche client</h3>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Nom : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedClient.name}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Téléphone : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedClient.phone}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Véhicule : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedClient.vehicle}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Immatriculation : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedClient.immatriculation || 'Non spécifiée'}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">VIP : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedClient.vip ? 'Oui' : 'Non'}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Dernière visite : <span className="font-medium text-gray-900 dark:text-slate-100">il y a {selectedClient.lastVisit} jours</span></p>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Fiche client</h3>
+            <p className="text-sm text-gray-600">Nom : <span className="font-medium text-gray-900">{selectedClient.name}</span></p>
+            <p className="text-sm text-gray-600">Téléphone : <span className="font-medium text-gray-900">{selectedClient.phone}</span></p>
+            <p className="text-sm text-gray-600">Véhicule : <span className="font-medium text-gray-900">{selectedClient.vehicle}</span></p>
+            <p className="text-sm text-gray-600">Immatriculation : <span className="font-medium text-gray-900">{selectedClient.immatriculation || 'Non spécifiée'}</span></p>
+            <p className="text-sm text-gray-600">VIP : <span className="font-medium text-gray-900">{selectedClient.vip ? 'Oui' : 'Non'}</span></p>
+            <p className="text-sm text-gray-600">Dernière visite : <span className="font-medium text-gray-900">il y a {selectedClient.lastVisit} jours</span></p>
             <button
               onClick={() => setSelectedClient(null)}
-              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 transition-colors"
+              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               Fermer
             </button>
@@ -259,18 +241,13 @@ export default function ClientsPage() {
           <>
             <button
               onClick={() => setIsAddClientOpen(false)}
-              className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
             >
               Annuler
             </button>
             <button
               onClick={handleCreateClient}
-              disabled={!clientForm.name || !clientForm.phone || !clientForm.vehicle}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !clientForm.name || !clientForm.phone || !clientForm.vehicle
-                  ? 'bg-blue-200 text-blue-700 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400'
-              }`}
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               Enregistrer
             </button>
@@ -283,30 +260,24 @@ export default function ClientsPage() {
             <input
               value={clientForm.name}
               onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 transition-all duration-200"
-              placeholder="Ex: Ahmed Ben Ali"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
             />
-            {clientErrors.name && <p className="mt-1 text-xs text-red-600">{clientErrors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
             <input
               value={clientForm.phone}
               onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 transition-all duration-200"
-              placeholder="Ex: 06 11 22 33 44"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
             />
-            {clientErrors.phone && <p className="mt-1 text-xs text-red-600">{clientErrors.phone}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>
             <input
               value={clientForm.vehicle}
               onChange={(e) => setClientForm({ ...clientForm, vehicle: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 transition-all duration-200"
-              placeholder="Ex: TMAX 125"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 transition-all duration-200"
             />
-            {clientErrors.vehicle && <p className="mt-1 text-xs text-red-600">{clientErrors.vehicle}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
@@ -331,7 +302,7 @@ export default function ClientsPage() {
       </Modal>
 
       <Toast toast={toast} />
-    </PageLayout>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { storage } from '../../lib/utils';
 
-type ThemeProviderProps = {};
+type ThemeProviderProps = Record<string, unknown>;
 
 const applyTheme = (isDark: boolean) => {
   document.documentElement.classList.toggle('dark', isDark);
@@ -11,7 +11,7 @@ const applyTheme = (isDark: boolean) => {
 
 export const setDarkTheme = (isDark: boolean) => {
   if (typeof window === 'undefined') return;
-  const params = storage.get<Record<string, any>>('params', {});
+  const params = storage.get<Record<string, unknown>>('params', {});
   const nextParams = { ...params, darkMode: isDark };
   storage.set('params', nextParams);
   applyTheme(isDark);
@@ -20,7 +20,7 @@ export const setDarkTheme = (isDark: boolean) => {
 export default function ThemeProvider({}: ThemeProviderProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = storage.get<Record<string, any>>('params', {});
+    const params = storage.get<Record<string, unknown>>('params', {});
     const darkMode = Boolean(params?.darkMode);
     applyTheme(darkMode);
 

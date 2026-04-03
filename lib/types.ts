@@ -1,6 +1,6 @@
 /**
- * Types métier centralisés pour Garage SaaS
- * Architecture prête pour Supabase
+ * Canonical TypeScript types for Garage SaaS
+ * Aligned with schema.sql — camelCase in TS, snake_case in DB
  */
 
 export type GarageSettings = {
@@ -19,12 +19,12 @@ export type Client = {
   garageId: string;
   name: string;
   phone: string;
-  vehicle: string;
-  immatriculation: string;
-  vip: boolean;
-  lastVisit: string;
   email?: string;
   address?: string;
+  vehicle?: string;       // vehicle text — model description
+  licensePlate?: string;  // license_plate
+  vip: boolean;
+  lastVisit: number;      // last_visit_days int
   createdAt: string;
   updatedAt: string;
 };
@@ -35,7 +35,7 @@ export type Intervention = {
   id: string;
   garageId: string;
   clientId: string;
-  vehicle: string;
+  vehicleId?: string;     // vehicle_id text
   type: string;
   status: InterventionStatus;
   date: string;
@@ -46,40 +46,107 @@ export type Intervention = {
   updatedAt: string;
 };
 
-export type FactureStatus = 'En attente' | 'Payée' | 'En retard';
+// ── Devis ─────────────────────────────────────────────────────────────────────
 
-export type Facture = {
+export type DevisStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'expired';
+
+export interface DevisItem {
+  id: string;
+  devisId: string;
+  description: string;
+  quantity: number;
+  unitPriceHt: number;
+  totalHt: number;
+}
+
+export interface Devis {
   id: string;
   garageId: string;
   clientId: string;
-  interventionId?: string;
-  amount: number;
-  status: FactureStatus;
-  date: string;
-  dueDate?: string;
-  paidAt?: string;
-  notes?: string;
+  status: DevisStatus;
+  totalHt: number;
+  tvaRate: number;
+  totalTtc: number;
+  validUntil: string | null;
+  notes: string | null;
   createdAt: string;
-  updatedAt: string;
+  items?: DevisItem[];
+  clientName?: string;
+}
+
+// ── Factures ──────────────────────────────────────────────────────────────────
+
+export type FactureStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'check';
+export type PaymentStatus = 'pending' | 'paid';
+
+export interface FactureItem {
+  id: string;
+  factureId: string;
+  description: string;
+  quantity: number;
+  unitPriceHt: number;
+  totalHt: number;
+}
+
+export interface Payment {
+  id: string;
+  factureId: string;
+  garageId: string;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  paidAt: string;
+  notes: string | null;
+}
+
+export interface Facture {
+  id: string;
+  garageId: string;
+  clientId: string;
+  devisId: string | null;
+  status: FactureStatus;
+  totalHt: number;
+  tvaRate: number;
+  totalTtc: number;
+  amountPaid: number;
+  dueDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  items?: FactureItem[];
+  payments?: Payment[];
+  clientName?: string;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export interface DashboardStats {
+  caThisMonth: number;
+  caLastMonth: number;
+  pendingInvoicesCount: number;
+  pendingInvoicesAmount: number;
+  activeInterventionsCount: number;
+  activeDevisCount: number;
+}
+
+// ── Status History ────────────────────────────────────────────────────────────
+
+export type StatusHistoryResource = 'devis' | 'intervention' | 'facture';
+
+export type StatusHistory = {
+  id: string;
+  garageId: string;
+  resourceType: StatusHistoryResource;
+  resourceId: string;
+  previousStatus?: string;
+  newStatus: string;
+  changedBy?: string | null;
+  changedAt: string;
+  metadata?: Record<string, unknown>;
 };
 
-// Types pour les listes
-export type ClientList = Client[];
-export type InterventionList = Intervention[];
-export type FactureList = Facture[];
+// ── Generic API envelope ──────────────────────────────────────────────────────
 
-// Types pour les stats/dashboard
-export type DashboardStats = {
-  totalFactures: number;
-  caTotal: number;
-  interventionsEnCours: number;
-  totalClients: number;
-  montantPaye?: number;
-  montantEnAttente?: number;
-  tauxPaiement?: number;
-};
-
-// Types API
 export type ApiResponse<T> = {
   success: boolean;
   data?: T;
@@ -94,7 +161,7 @@ export type PaginatedResponse<T> = {
   hasMore: boolean;
 };
 
-// Types pour les formulaires
+// ── Form data helpers ─────────────────────────────────────────────────────────
+
 export type ClientFormData = Omit<Client, 'id' | 'garageId' | 'createdAt' | 'updatedAt'>;
 export type InterventionFormData = Omit<Intervention, 'id' | 'garageId' | 'createdAt' | 'updatedAt'>;
-export type FactureFormData = Omit<Facture, 'id' | 'garageId' | 'createdAt' | 'updatedAt'>;

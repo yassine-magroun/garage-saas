@@ -5,7 +5,7 @@ import MobileNav from './MobileNav';
 
 type PageLayoutProps = {
   children: React.ReactNode;
-  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'parametres';
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres';
   garageName?: string;
 };
 
@@ -15,7 +15,7 @@ export default function PageLayout({
   garageName = '2roues Pasteur'
 }: PageLayoutProps) {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
       <Sidebar activePage={activePage} garageName={garageName} />
 

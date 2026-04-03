@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Users, Wrench, FileText, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings } from 'lucide-react';
 
 type SidebarItem = {
   href: string;
@@ -8,20 +8,21 @@ type SidebarItem = {
   active: boolean;
 };
 
-export default function Sidebar({ activePage, garageName }: { activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'parametres'; garageName?: string }) {
+export default function Sidebar({ activePage, garageName }: { activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres'; garageName?: string }) {
   const items: SidebarItem[] = [
     { href: '/', label: 'Tableau de bord', icon: LayoutDashboard, active: activePage === 'dashboard' },
     { href: '/clients', label: 'Clients', icon: Users, active: activePage === 'clients' },
     { href: '/interventions', label: 'Interventions', icon: Wrench, active: activePage === 'interventions' },
     { href: '/factures', label: 'Factures', icon: FileText, active: activePage === 'factures' },
+    { href: '/devis', label: 'Devis', icon: ClipboardList, active: activePage === 'devis' },
     { href: '/parametres', label: 'Paramètres', icon: Settings, active: activePage === 'parametres' },
   ];
 
   return (
-    <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-gray-100 dark:border-slate-700 h-screen sticky top-0">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-slate-100">{garageName || '2roues Pasteur'}</h1>
-        <p className="text-xs text-gray-500 dark:text-slate-300 mt-1">Gestion garage</p>
+    <aside className="hidden md:flex md:w-64 flex-col bg-white border-r border-gray-100 h-screen sticky top-0">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h1 className="text-lg font-semibold text-gray-900">{garageName || '2roues Pasteur'}</h1>
+        <p className="text-xs text-gray-500 mt-1">Gestion garage</p>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1">

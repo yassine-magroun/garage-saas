@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LayoutDashboard, Users, Wrench, FileText, Settings } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings } from 'lucide-react';
 
 type NavItem = {
   href: string;
@@ -14,7 +14,7 @@ export default function MobileNav({
   activePage, 
   garageName 
 }: { 
-  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'parametres';
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres';
   garageName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,6 +24,7 @@ export default function MobileNav({
     { href: '/clients', label: 'Clients', icon: Users },
     { href: '/interventions', label: 'Interventions', icon: Wrench },
     { href: '/factures', label: 'Factures', icon: FileText },
+    { href: '/devis', label: 'Devis', icon: ClipboardList },
     { href: '/parametres', label: 'Paramètres', icon: Settings },
   ];
 

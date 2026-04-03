@@ -1,358 +1,443 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
-import Modal from '../components/Modal';
 import Toast from '../components/Toast';
-import { Plus, Eye, ArrowLeft } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ArrowLeft, Euro, Clock, CreditCard, X } from 'lucide-react';
+import { getFacturesList, getFactureWithPayments, addPayment } from '../../lib/api';
+import { getGarageId } from '../../lib/garage';
+import type { Facture, FactureStatus, Payment, PaymentMethod } from '../../lib/types';
 
-const initialInvoices = [
-  {
-    id: '1',
-    clientId: '1',
-    interventionId: '1',
-    amount: 120,
-    status: 'Payée',
-    date: '15/01/2026',
-  },
-];
+const STATUS_LABELS: Record<FactureStatus, string> = {
+  unpaid: 'Non payée',
+  partial: 'Partielle',
+  paid: 'Payée',
+  cancelled: 'Annulée',
+};
+
+const STATUS_COLORS: Record<FactureStatus, string> = {
+  unpaid: 'bg-red-50 text-red-700 border-red-200',
+  partial: 'bg-amber-50 text-amber-700 border-amber-200',
+  paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  cancelled: 'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+const METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Espèces',
+  card: 'Carte',
+  transfer: 'Virement',
+  check: 'Chèque',
+};
 
 export default function FacturesPage() {
-  const [invoices, setInvoices] = useState(initialInvoices);
-  const [clients, setClients] = useState<any[]>([]);
-  const [interventions, setInterventions] = useState<any[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<typeof initialInvoices[0] | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [garageId, setGarageId] = useState('');
+  const [factures, setFactures] = useState<Facture[]>([]);
+  const [selectedFacture, setSelectedFacture] = useState<Facture | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [invoiceErrors, setInvoiceErrors] = useState<{ clientId?: string; interventionId?: string; amount?: string; date?: string }>({});
-  const [garageName, setGarageName] = useState('2roues Pasteur');
-  const [form, setForm] = useState({
-    clientId: '',
-    interventionId: '',
-    amount: '',
-    date: '',
-  });
+
+  // Payment modal
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<{
+    amount: string;
+    method: PaymentMethod;
+    notes: string;
+  }>({ amount: '', method: 'cash', notes: '' });
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Filter
+  const [filter, setFilter] = useState<FactureStatus | 'all'>('all');
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('factures');
-    if (stored) {
-      try { setInvoices(JSON.parse(stored)); } catch { }
-    }
-
-    const savedClients = localStorage.getItem('clients');
-    if (savedClients) {
-      try { setClients(JSON.parse(savedClients)); } catch { }
-    }
-
-    const savedInterventions = localStorage.getItem('interventions');
-    if (savedInterventions) {
-      try { setInterventions(JSON.parse(savedInterventions)); } catch { }
-    }
-
-    const savedParams = localStorage.getItem('params');
-    if (savedParams) {
+    const load = async () => {
+      setIsLoading(true);
       try {
-        const parsed = JSON.parse(savedParams);
-        if (parsed?.garageName) setGarageName(parsed.garageName);
-      } catch { }
-    }
+        const gid = await getGarageId();
+        setGarageId(gid);
+        const list = await getFacturesList(gid);
+        setFactures(list);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Erreur chargement factures', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void load();
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('factures', JSON.stringify(invoices));
-  }, [invoices]);
-
-  const totalFactures = invoices.length;
-  const totalFacture = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const montantPaye = invoices.filter(inv => inv.status === 'Payée').reduce((sum, inv) => sum + inv.amount, 0);
-  const montantAttente = totalFacture - montantPaye;
-
-  const handleCreateInvoice = () => {
-    const errors: typeof invoiceErrors = {};
-
-    if (!form.clientId) errors.clientId = 'Client obligatoire';
-    if (!form.interventionId) errors.interventionId = 'Intervention obligatoire';
-    if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
-      errors.amount = 'Montant supérieur à 0 obligatoire';
+  const handleSelectFacture = async (facture: Facture) => {
+    setSelectedFacture(facture);
+    try {
+      const full = await getFactureWithPayments(facture.id, garageId);
+      setSelectedFacture(full);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur chargement détail', 'error');
     }
-    if (!form.date) errors.date = 'Date obligatoire';
+  };
 
-    setInvoiceErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
-      setToast({ message: 'Veuillez corriger les erreurs avant de créer la facture', type: 'error' });
-      setTimeout(() => setToast(null), 3000);
+  const handleAddPayment = async () => {
+    if (!selectedFacture) return;
+    const amount = Number(paymentForm.amount);
+    if (!amount || amount <= 0) {
+      showToast('Montant invalide', 'error');
       return;
     }
+    setIsSubmittingPayment(true);
+    try {
+      const payment = await addPayment(
+        selectedFacture.id,
+        garageId,
+        amount,
+        paymentForm.method,
+        paymentForm.notes || undefined,
+      );
 
-    const newInvoice = {
-      id: Date.now().toString(),
-      clientId: form.clientId,
-      interventionId: form.interventionId,
-      amount: parseFloat(form.amount),
-      status: 'En attente',
-      date: form.date,
-    };
-    setInvoices((prev) => [newInvoice, ...prev]);
-    setForm({ clientId: '', interventionId: '', amount: '', date: '' });
-    setInvoiceErrors({});
-    setIsModalOpen(false);
-    setToast({ message: 'Facture créée avec succès !', type: 'success' });
-    setTimeout(() => setToast(null), 3000);
+      // Refresh the facture
+      const updated = await getFactureWithPayments(selectedFacture.id, garageId);
+      setSelectedFacture(updated);
+      setFactures((prev) => prev.map((f) => (f.id === updated.id ? { ...f, status: updated.status, amountPaid: updated.amountPaid } : f)));
+
+      setPaymentModal(false);
+      setPaymentForm({ amount: '', method: 'cash', notes: '' });
+      showToast(`Paiement de ${payment.amount.toFixed(2)} € enregistré`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur ajout paiement', 'error');
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   };
 
-  const markAsPaid = (id: string) => {
-    setInvoices(invoices.map(inv => inv.id === id ? { ...inv, status: 'Payée' } : inv));
-    setToast({ message: 'Facture marquée comme payée !', type: 'success' });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const filtered = filter === 'all' ? factures : factures.filter((f) => f.status === filter);
+
+  // Stats
+  const caTotal = factures.filter((f) => f.status === 'paid').reduce((s, f) => s + f.totalTtc, 0);
+  const pendingCount = factures.filter((f) => f.status === 'unpaid' || f.status === 'partial').length;
+  const pendingAmount = factures
+    .filter((f) => f.status === 'unpaid' || f.status === 'partial')
+    .reduce((s, f) => s + (f.totalTtc - f.amountPaid), 0);
 
   return (
-    <>
-      <PageLayout activePage="factures" garageName={garageName}>
+    <AuthGuard>
+      <PageLayout activePage="factures" garageName="2roues Pasteur">
         <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-4 md:px-8 py-4 md:py-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link href="/" className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-sm">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-sm"
+            >
               <ArrowLeft className="w-4 h-4" />
               Retour
             </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-slate-100">Factures</h1>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-slate-300 mt-1">Suivez les factures émises du garage</p>
+            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-slate-100">
+              Factures
+            </h1>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 md:px-5 md:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium text-sm shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Créer une facture
-          </button>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 p-4 md:p-8 space-y-8">
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <div className="bg-white dark:bg-slate-800 dark:border-slate-700 border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total factures</p>
-                  <p className="text-4xl font-semibold text-gray-900">{totalFactures}</p>
+        <main className="p-4 md:p-8 space-y-6 overflow-y-auto bg-gray-50/30">
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <Euro className="w-5 h-5 text-emerald-600" />
                 </div>
-                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">CA encaissé</p>
+                  <p className="text-xl font-bold text-emerald-600">{caTotal.toFixed(2)} €</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Montant total facturé</p>
-                  <p className="text-4xl font-semibold text-gray-900">{totalFacture}€</p>
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-red-500" />
                 </div>
-                <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-purple-500 rounded-full"></div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">En attente</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {pendingCount} · {pendingAmount.toFixed(2)} €
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Montant payé</p>
-                  <p className="text-4xl font-semibold text-emerald-600">{montantPaye}€</p>
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
                 </div>
-                <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Total factures</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-slate-100">
+                    {factures.length}
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Montant en attente</p>
-                  <p className="text-4xl font-semibold text-amber-600">{montantAttente}€</p>
-                </div>
-                <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-amber-500 rounded-full"></div>
-                </div>
-              </div>
-            </div>
-          </section>
+          </div>
 
-          <section className="flex gap-2 border-b border-gray-100 dark:border-slate-700">
-            <button className="px-4 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px">Toutes</button>
-            <button className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Payées</button>
-            <button className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">En attente</button>
-          </section>
+          {/* Filter tabs */}
+          <div className="flex gap-1 border-b border-gray-100 dark:border-slate-700">
+            {(['all', 'unpaid', 'partial', 'paid', 'cancelled'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  filter === s
+                    ? 'text-blue-600 border-blue-600'
+                    : 'text-gray-600 dark:text-slate-400 border-transparent hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                {s === 'all' ? 'Toutes' : STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">            {invoices.map((invoice) => {
-              const client = clients.find(c => c.id === invoice.clientId);
-              const intervention = interventions.find(i => i.id === invoice.interventionId);
-              return (
-                <article
-                  key={invoice.id}
-                  className="bg-white dark:bg-slate-800 dark:border-slate-700 border border-gray-100 rounded-lg p-6 hover:shadow-md transition-all duration-200 group"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="font-medium text-gray-900 text-sm">Facture {invoice.id}</h2>
-                      <p className="text-xs text-gray-500 mt-1">{invoice.date}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setSelectedInvoice(invoice)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors"
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Facture list */}
+            <div className="space-y-3">
+              {isLoading ? (
+                <p className="text-sm text-gray-500 dark:text-slate-400">Chargement...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-slate-400">Aucune facture</p>
+              ) : (
+                filtered.map((facture) => (
+                  <button
+                    key={facture.id}
+                    onClick={() => void handleSelectFacture(facture)}
+                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                      selectedFacture?.id === facture.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                        : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                          {facture.clientName ?? facture.clientId.slice(0, 8)}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                          {new Date(facture.createdAt).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[facture.status]}`}
                       >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        invoice.status === 'Payée' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        invoice.status === 'En attente' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                        'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                        {invoice.status}
+                        {STATUS_LABELS[facture.status]}
                       </span>
                     </div>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="text-gray-600">
-                      <span className="font-medium text-gray-900">Client:</span> {client?.name || 'Client inconnu'}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium text-gray-900">Intervention:</span> {intervention?.type || 'Intervention inconnue'}
-                    </p>
-                    <p className="text-gray-600">
-                      <span className="font-medium text-gray-900">Montant:</span> {invoice.amount}€
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-slate-300">
+                        Total: <strong>{facture.totalTtc.toFixed(2)} €</strong>
+                      </span>
+                      {facture.amountPaid > 0 && (
+                        <span className="text-emerald-600">
+                          Payé: {facture.amountPaid.toFixed(2)} €
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
 
-          <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-lg p-6 text-sm text-gray-600 dark:text-slate-300">
-            <p className="font-medium text-gray-900 dark:text-slate-100">{invoices.length} factures affichées</p>
+            {/* Selected facture detail */}
+            {selectedFacture && (
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-slate-100">
+                      Facture — {selectedFacture.clientName ?? selectedFacture.clientId.slice(0, 8)}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">
+                      {new Date(selectedFacture.createdAt).toLocaleDateString('fr-FR')}
+                      {selectedFacture.dueDate &&
+                        ` · Échéance: ${new Date(selectedFacture.dueDate).toLocaleDateString('fr-FR')}`}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[selectedFacture.status]}`}
+                  >
+                    {STATUS_LABELS[selectedFacture.status]}
+                  </span>
+                </div>
+
+                {/* Items */}
+                {selectedFacture.items && selectedFacture.items.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">
+                      Lignes
+                    </p>
+                    {selectedFacture.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between text-sm p-2 bg-gray-50 dark:bg-slate-900 rounded-lg"
+                      >
+                        <span className="text-gray-900 dark:text-slate-100">{item.description}</span>
+                        <span className="text-gray-600 dark:text-slate-300 ml-4 whitespace-nowrap">
+                          {item.quantity} × {item.unitPriceHt.toFixed(2)} € ={' '}
+                          {item.totalHt.toFixed(2)} € HT
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Totals */}
+                <div className="flex justify-end gap-6 text-sm font-medium pt-2 border-t border-gray-100 dark:border-slate-700">
+                  <span className="text-gray-600 dark:text-slate-300">
+                    HT: {selectedFacture.totalHt.toFixed(2)} €
+                  </span>
+                  <span className="text-gray-600 dark:text-slate-300">
+                    TVA {selectedFacture.tvaRate}%
+                  </span>
+                  <span className="font-bold text-gray-900 dark:text-slate-100">
+                    TTC: {selectedFacture.totalTtc.toFixed(2)} €
+                  </span>
+                </div>
+
+                {/* Payments */}
+                {selectedFacture.payments && selectedFacture.payments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">
+                      Paiements
+                    </p>
+                    {selectedFacture.payments.map((payment: Payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex justify-between items-center text-sm p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800"
+                      >
+                        <span className="text-emerald-700 dark:text-emerald-300">
+                          {METHOD_LABELS[payment.method]} ·{' '}
+                          {new Date(payment.paidAt).toLocaleDateString('fr-FR')}
+                          {payment.notes && ` · ${payment.notes}`}
+                        </span>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                          +{payment.amount.toFixed(2)} €
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-end text-sm text-gray-600 dark:text-slate-300">
+                      Reste dû:{' '}
+                      <strong className="ml-1 text-gray-900 dark:text-slate-100">
+                        {Math.max(
+                          0,
+                          selectedFacture.totalTtc - selectedFacture.amountPaid,
+                        ).toFixed(2)}{' '}
+                        €
+                      </strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add payment button */}
+                {(selectedFacture.status === 'unpaid' || selectedFacture.status === 'partial') && (
+                  <button
+                    onClick={() => setPaymentModal(true)}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Enregistrer un paiement
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </main>
-    </PageLayout>
 
-      <Modal
-        isOpen={isModalOpen}
-        title="Créer une facture"
-        onClose={() => setIsModalOpen(false)}
-        actions={
-          <>
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleCreateInvoice}
-              disabled={!form.clientId || !form.interventionId || !form.amount || !form.date}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !form.clientId || !form.interventionId || !form.amount || !form.date
-                  ? 'bg-blue-200 text-blue-700 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400'
-              }`}
-            >
-              Enregistrer
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">Client</label>
-            <select
-              value={form.clientId}
-              onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-              className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value="">Sélectionner un client</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>{client.name}</option>
-              ))}
-            </select>
-            {invoiceErrors.clientId && <p className="mt-1 text-xs text-red-600">{invoiceErrors.clientId}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">Intervention</label>
-            <select
-              value={form.interventionId}
-              onChange={(e) => setForm({ ...form, interventionId: e.target.value })}
-              className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value="">Sélectionner une intervention</option>
-              {interventions.map(intervention => (
-                <option key={intervention.id} value={intervention.id}>
-                  {intervention.type}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">Montant (€)</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:text-slate-100"
-                placeholder="Ex: 150"
-              />
-              {invoiceErrors.amount && <p className="mt-1 text-xs text-red-600">{invoiceErrors.amount}</p>}
+        {/* Payment modal */}
+        {paymentModal && selectedFacture && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                  Enregistrer un paiement
+                </h3>
+                <button
+                  onClick={() => setPaymentModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                    Montant (€)
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder={`Max: ${(selectedFacture.totalTtc - selectedFacture.amountPaid).toFixed(2)} €`}
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    className="w-full border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-700 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                    Mode de paiement
+                  </label>
+                  <select
+                    value={paymentForm.method}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, method: e.target.value as PaymentMethod })
+                    }
+                    className="w-full border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-700 text-sm"
+                  >
+                    {(Object.entries(METHOD_LABELS) as [PaymentMethod, string][]).map(
+                      ([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                    Notes (optionnel)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Référence, commentaire..."
+                    value={paymentForm.notes}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                    className="w-full border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-700 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setPaymentModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => void handleAddPayment()}
+                  disabled={isSubmittingPayment || !paymentForm.amount}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {isSubmittingPayment ? 'Enregistrement...' : 'Valider'}
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:text-slate-100"
-              />
-              {invoiceErrors.date && <p className="mt-1 text-xs text-red-600">{invoiceErrors.date}</p>}
-            </div>
           </div>
-        </div>
-      </Modal>
-
-      {selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 w-full max-w-sm shadow-lg border border-gray-100 dark:border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Détails de la facture</h3>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Numéro : <span className="font-medium text-gray-900 dark:text-slate-100">FAC-{selectedInvoice.id}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Client : <span className="font-medium text-gray-900 dark:text-slate-100">{clients.find(c => c.id === selectedInvoice.clientId)?.name || 'Client inconnu'}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Intervention : <span className="font-medium text-gray-900 dark:text-slate-100">{interventions.find(i => i.id === selectedInvoice.interventionId)?.type || 'Intervention inconnue'}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Véhicule : <span className="font-medium text-gray-900 dark:text-slate-100">{interventions.find(i => i.id === selectedInvoice.interventionId)?.vehicle || 'Véhicule inconnu'}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Date : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedInvoice.date}</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Montant : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedInvoice.amount}€</span></p>
-            <p className="text-sm text-gray-600 dark:text-slate-300">Statut : <span className="font-medium text-gray-900 dark:text-slate-100">{selectedInvoice.status}</span></p>
-            {selectedInvoice.status !== 'Payée' && (
-              <button
-                onClick={() => {
-                  markAsPaid(selectedInvoice.id);
-                  setSelectedInvoice(null);
-                }}
-                className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Marquer comme payée
-              </button>
-            )}
-            <button
-              onClick={() => setSelectedInvoice(null)}
-              className="mt-2 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
+        )}
+      </PageLayout>
       <Toast toast={toast} />
-    </>
+    </AuthGuard>
   );
 }
