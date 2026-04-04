@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap } from 'lucide-react';
 
 type SidebarItem = {
   href: string;
@@ -8,38 +8,49 @@ type SidebarItem = {
   active: boolean;
 };
 
-export default function Sidebar({ activePage, garageName }: { activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres'; garageName?: string }) {
+export default function Sidebar({
+  activePage,
+}: {
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres';
+  garageName?: string;
+}) {
   const items: SidebarItem[] = [
-    { href: '/', label: 'Tableau de bord', icon: LayoutDashboard, active: activePage === 'dashboard' },
-    { href: '/clients', label: 'Clients', icon: Users, active: activePage === 'clients' },
-    { href: '/interventions', label: 'Interventions', icon: Wrench, active: activePage === 'interventions' },
-    { href: '/factures', label: 'Factures', icon: FileText, active: activePage === 'factures' },
-    { href: '/devis', label: 'Devis', icon: ClipboardList, active: activePage === 'devis' },
-    { href: '/parametres', label: 'Paramètres', icon: Settings, active: activePage === 'parametres' },
+    { href: '/',              label: 'Tableau de bord',  icon: LayoutDashboard, active: activePage === 'dashboard'      },
+    { href: '/clients',       label: 'Clients',           icon: Users,           active: activePage === 'clients'        },
+    { href: '/interventions', label: 'Interventions',     icon: Wrench,          active: activePage === 'interventions'  },
+    { href: '/factures',      label: 'Factures',          icon: FileText,        active: activePage === 'factures'       },
+    { href: '/devis',         label: 'Devis',             icon: ClipboardList,   active: activePage === 'devis'          },
+    { href: '/parametres',    label: 'Paramètres',        icon: Settings,        active: activePage === 'parametres'     },
   ];
 
   return (
-    <aside className="hidden md:flex md:w-64 flex-col bg-white border-r border-gray-100 h-screen sticky top-0">
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h1 className="text-lg font-semibold text-gray-900">{garageName || '2roues Pasteur'}</h1>
-        <p className="text-xs text-gray-500 mt-1">Gestion garage</p>
+    <aside className="hidden md:flex md:w-60 flex-col bg-[#1A1D27] border-r border-[#2A2D3A] h-screen sticky top-0">
+      {/* Logo */}
+      <div className="px-5 py-5 border-b border-[#2A2D3A]">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-[#FF6B2B]" />
+          <span className="text-lg font-bold text-[#FF6B2B] tracking-tight">MecaniGo</span>
+        </div>
+        <p className="text-xs text-[#8B8FA8] mt-1 leading-snug">La gestion garage, enfin simple.</p>
       </div>
+
+      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
+        <ul className="space-y-0.5">
           {items.map((item) => {
             const Icon = item.icon;
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
                     item.active
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-[#FF6B2B]/10 text-[#FF6B2B]'
+                      : 'text-[#8B8FA8] hover:bg-white/5 hover:text-white'
                   }`}
                   aria-current={item.active ? 'page' : undefined}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                   {item.label}
                 </Link>
               </li>

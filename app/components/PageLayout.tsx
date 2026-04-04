@@ -9,21 +9,12 @@ type PageLayoutProps = {
   garageName?: string;
 };
 
-export default function PageLayout({ 
-  children, 
-  activePage,
-  garageName = '2roues Pasteur'
-}: PageLayoutProps) {
+export default function PageLayout({ children, activePage }: PageLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      {/* Desktop Sidebar */}
-      <Sidebar activePage={activePage} garageName={garageName} />
-
-      {/* Mobile Navigation */}
-      <MobileNav activePage={activePage} garageName={garageName} />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col w-full md:w-auto pt-14 md:pt-0">
+    <div className="min-h-screen bg-[#0F1117] flex flex-col md:flex-row">
+      <Sidebar activePage={activePage} />
+      <MobileNav activePage={activePage} />
+      <div className="flex-1 flex flex-col w-full md:w-auto pt-12 md:pt-0 min-h-screen">
         {children}
       </div>
     </div>
