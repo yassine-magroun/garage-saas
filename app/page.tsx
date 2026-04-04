@@ -30,11 +30,78 @@ function calcEvolution(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
+// ─── Motorcycle SVG ───────────────────────────────────────────────────────────
+
+function MotorcycleSVG() {
+  return (
+    <svg
+      viewBox="0 0 220 100"
+      fill="none"
+      width="220"
+      height="100"
+      aria-hidden="true"
+      style={{ opacity: 0.9 }}
+    >
+      {/* Body/frame */}
+      <path d="M60,70 L80,40 L120,35 L150,40 L160,70" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Wheels */}
+      <circle cx="45" cy="72" r="22" stroke="#FF6B2B" strokeWidth="1.5" />
+      <circle cx="175" cy="72" r="22" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Wheel spokes front */}
+      <line x1="45" y1="50" x2="45" y2="94" stroke="#FF6B2B" strokeWidth="1" />
+      <line x1="23" y1="72" x2="67" y2="72" stroke="#FF6B2B" strokeWidth="1" />
+      {/* Wheel spokes rear */}
+      <line x1="175" y1="50" x2="175" y2="94" stroke="#FF6B2B" strokeWidth="1" />
+      <line x1="153" y1="72" x2="197" y2="72" stroke="#FF6B2B" strokeWidth="1" />
+      {/* Fairing/windscreen */}
+      <path d="M120,35 L130,20 L145,25 L150,40" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Handlebar */}
+      <path d="M118,38 L125,30 L135,32" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Seat */}
+      <path d="M85,40 Q105,35 130,38" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Exhaust */}
+      <path d="M60,65 L40,68 L35,72" stroke="#FF6B2B" strokeWidth="1.5" />
+      {/* Fork */}
+      <path d="M38,55 L45,72" stroke="#FF6B2B" strokeWidth="2" />
+      <path d="M52,50 L45,72" stroke="#FF6B2B" strokeWidth="2" />
+    </svg>
+  );
+}
+
+// ─── Sparkline ────────────────────────────────────────────────────────────────
+
+function Sparkline() {
+  return (
+    <svg viewBox="0 0 80 28" fill="none" width="80" height="28" aria-hidden="true">
+      <defs>
+        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FF6B2B" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#FF6B2B" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M0,24 L10,20 L20,18 L30,13 L40,16 L50,9 L60,6 L70,4 L80,2 L80,28 L0,28 Z"
+        fill="url(#sparkGrad)"
+      />
+      <path
+        d="M0,24 L10,20 L20,18 L30,13 L40,16 L50,9 L60,6 L70,4 L80,2"
+        stroke="#FF6B2B"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-5 animate-pulse">
+    <div
+      className="rounded-2xl border border-[#FF6B2B]/15 p-6 animate-pulse backdrop-blur-[12px]"
+      style={{ background: 'rgba(26,29,39,0.8)' }}
+    >
       <div className="flex flex-col gap-4">
         <div className="w-9 h-9 bg-[#2A2D3A] rounded-lg" />
         <div className="space-y-2">
@@ -54,17 +121,34 @@ interface KpiCardProps {
   label: string;
   value: string;
   sub?: React.ReactNode;
+  dominant?: boolean;
 }
 
-function KpiCard({ icon, iconBg, label, value, sub }: KpiCardProps) {
+function KpiCard({ icon, iconBg, label, value, sub, dominant }: KpiCardProps) {
   return (
-    <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-5 hover:border-[#3A3D4A] transition-colors">
-      <div className="flex flex-col gap-3">
-        <div className={`p-2 ${iconBg} rounded-lg w-fit`}>{icon}</div>
+    <div
+      className="relative rounded-2xl border border-[#FF6B2B]/15 p-6 backdrop-blur-[12px] transition-all duration-200 hover:-translate-y-[3px] hover:border-[#FF6B2B]/40 hover:shadow-[0_8px_32px_rgba(255,107,43,0.10)]"
+      style={{
+        background: dominant
+          ? 'linear-gradient(135deg, rgba(255,107,43,0.12) 0%, rgba(26,29,39,0.8) 65%)'
+          : 'rgba(26,29,39,0.8)',
+      }}
+    >
+      <div className="flex flex-col gap-3 h-full">
+        <div className="flex items-start justify-between">
+          <div className={`p-2 ${iconBg} rounded-lg w-fit`}>{icon}</div>
+          {dominant && <Sparkline />}
+        </div>
         <div>
           <p className="text-xs md:text-sm font-medium text-[#8B8FA8]">{label}</p>
-          <p className="text-xl md:text-2xl font-bold text-white mt-1 leading-tight">{value}</p>
-          {sub && <div className="mt-1">{sub}</div>}
+          <p
+            className={`font-bold text-white mt-1 leading-tight tabular-nums ${
+              dominant ? 'text-3xl' : 'text-xl md:text-2xl'
+            }`}
+          >
+            {value}
+          </p>
+          {sub && <div className="mt-1.5">{sub}</div>}
         </div>
       </div>
     </div>
@@ -97,22 +181,73 @@ export default function HomePage() {
 
   return (
     <PageLayout activePage="dashboard">
-      <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold text-white">Tableau de bord</h1>
-            <p className="text-xs md:text-sm text-[#8B8FA8] mt-1">
-              Bienvenue sur l&apos;espace de gestion
-            </p>
+      <main className="flex-1 p-4 md:p-8 space-y-5 md:space-y-7 overflow-y-auto">
+
+        {/* ── ELEMENT 1: North Star Hero ─────────────────────────────────── */}
+        <div
+          className="relative overflow-hidden rounded-2xl flex items-center justify-between px-6 md:px-10 border border-[#FF6B2B]/15"
+          style={{
+            background: `
+              radial-gradient(ellipse at 20% 50%, rgba(255,107,43,0.15) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(255,107,43,0.08) 0%, transparent 50%),
+              #0F1117
+            `,
+            minHeight: '140px',
+          }}
+        >
+          {/* Subtle grid texture overlay */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 40px)',
+            }}
+          />
+
+          {/* Left: copy */}
+          <div className="relative flex flex-col gap-2.5 py-8">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#FF6B2B]/15 text-[#FF6B2B] border border-[#FF6B2B]/25 w-fit">
+              ⚡ Garage actif
+            </span>
+            <h1 className="text-2xl md:text-[32px] font-bold text-white leading-tight tracking-tight">
+              Bonjour, MecaniGo 👋
+            </h1>
+            <p className="text-sm text-[#8B8FA8]">Votre garage en un coup d&apos;œil</p>
           </div>
-          <span className="inline-flex items-center self-start md:self-auto px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2" />
-            Garage actif
+
+          {/* Right: bike SVG — desktop only */}
+          <div className="hidden md:block relative flex-shrink-0 select-none">
+            <MotorcycleSVG />
+          </div>
+        </div>
+
+        {/* ── ELEMENT 3: Stat Pills ──────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#8B8FA8]">
+          <span>
+            🔧{' '}
+            <span className="text-[#FF6B2B] font-semibold tabular-nums">
+              {stats ? stats.activeInterventionsCount : '—'}
+            </span>{' '}
+            en cours
+          </span>
+          <span className="text-[#2A2D3A] hidden sm:inline">·</span>
+          <span>
+            📋{' '}
+            <span className="text-[#FF6B2B] font-semibold tabular-nums">
+              {stats ? stats.pendingInvoicesCount : '—'}
+            </span>{' '}
+            factures en attente
+          </span>
+          <span className="text-[#2A2D3A] hidden sm:inline">·</span>
+          <span>
+            💰{' '}
+            <span className="text-[#FF6B2B] font-semibold tabular-nums">
+              {stats ? fmtCurrency(stats.caThisMonth) : '—'}
+            </span>{' '}
+            ce mois
           </span>
         </div>
-      </header>
 
-      <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
         {/* Error banner */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
@@ -120,16 +255,17 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* KPI Grid — 2 cols mobile, 3 cols desktop */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+        {/* ── ELEMENT 2: Glassmorphism KPI Grid ─────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
           ) : (
             <>
-              {/* 1 — CA ce mois */}
+              {/* 1 — CA ce mois — DOMINANT */}
               <KpiCard
-                icon={<Euro className="w-5 h-5 text-emerald-400" />}
-                iconBg="bg-emerald-500/15"
+                dominant
+                icon={<Euro className="w-5 h-5 text-[#FF6B2B]" />}
+                iconBg="bg-[#FF6B2B]/15"
                 label="CA ce mois"
                 value={stats ? fmtCurrency(stats.caThisMonth) : '—'}
               />
@@ -215,8 +351,8 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Recent Activity + Recent Clients */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ── Recent Activity + Recent Clients ──────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
             <h3 className="text-base md:text-lg font-semibold text-white mb-4 md:mb-6">
               Activité récente
@@ -304,7 +440,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Quick actions */}
+        {/* ── Quick actions ─────────────────────────────────────────────── */}
         <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
           <h3 className="text-base md:text-lg font-semibold text-white mb-4 md:mb-5">
             Actions rapides
@@ -336,6 +472,7 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+
       </main>
     </PageLayout>
   );
