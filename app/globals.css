@@ -1,35 +1,162 @@
 @import "tailwindcss";
 
+/* ─── MecaniGo Design Tokens ─────────────────────────────────────────────────
+   Dark mode is the default.
+   Light mode is activated by adding class="light" to <html>.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #f9fafb;
-  --foreground: #1f2937;
+  /* Brand (constant — never theme-dependent) */
+  --mg-primary:       #FF6B2B;
+  --mg-primary-dark:  #E55A1C;
+  --mg-primary-light: #FF8C5A;
+
+  /* Surface tokens — DARK default */
+  --mg-bg:              #0F1117;
+  --mg-surface:         #1A1D27;
+  --mg-surface-raised:  #22263A;
+  --mg-border:          #2A2D3A;
+
+  /* Text tokens — DARK default */
+  --mg-text:           #FFFFFF;
+  --mg-text-secondary: #8B8FA8;
+  --mg-text-disabled:  #4B5063;
+
+  /* Semantic (constant) */
+  --mg-success: #10B981;
+  --mg-warning: #F59E0B;
+  --mg-error:   #EF4444;
+  --mg-info:    #3B82F6;
+
+  /* Sidebar */
+  --mg-sidebar-width: 240px;
 }
+
+/* ─── Light Mode Override ────────────────────────────────────────────────── */
+.light {
+  --mg-bg:             #F8F9FC;
+  --mg-surface:        #FFFFFF;
+  --mg-surface-raised: #F3F4F8;
+  --mg-border:         #E5E7EB;
+
+  --mg-text:           #0F1117;
+  --mg-text-secondary: #6B7280;
+  --mg-text-disabled:  #9CA3AF;
+}
+
+/* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────
+   Registers custom utilities: bg-primary, text-mg-text, border-mg-border, etc.
+   NOTE: Tailwind v4 uses @theme in globals.css — no tailwind.config.ts needed.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font */
+  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+
+  /* Brand colors — static, generate bg-primary / text-primary / border-primary */
+  --color-primary:       #FF6B2B;
+  --color-primary-dark:  #E55A1C;
+  --color-primary-light: #FF8C5A;
+
+  /* Semantic colors — static */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error:   #EF4444;
+  --color-info:    #3B82F6;
+
+  /* Surface tokens — dynamic (CSS var-backed, respond to .light/.dark)
+     Generates: bg-mg-bg, bg-mg-surface, border-mg-border, text-mg-text, etc. */
+  --color-mg-bg:              var(--mg-bg);
+  --color-mg-surface:         var(--mg-surface);
+  --color-mg-surface-raised:  var(--mg-surface-raised);
+  --color-mg-border:          var(--mg-border);
+  --color-mg-text:            var(--mg-text);
+  --color-mg-text-secondary:  var(--mg-text-secondary);
+  --color-mg-text-disabled:   var(--mg-text-disabled);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-}
+/* ─── Base Styles ────────────────────────────────────────────────────────── */
 
 html {
   scroll-behavior: smooth;
+  /* Start in dark mode — ThemeProvider will toggle .light class if needed */
 }
 
-/* Transitions élégantes */
-* {
-  @apply transition-all duration-200;
+body {
+  background-color: var(--mg-bg);
+  color: var(--mg-text);
+  font-family: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* ─── Focus Ring ─────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--mg-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Transitions ────────────────────────────────────────────────────────── */
+/* Scoped to interactive elements only — avoids layout repaint on every node */
+
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Card hover lift */
+.card-hover {
+  transition-property: transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+/* ─── Scrollbar (subtle dark) ────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--mg-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--mg-border);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mg-text-secondary);
+}
+
+/* ─── Loading Skeleton ───────────────────────────────────────────────────── */
+
+@keyframes mg-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.skeleton {
+  background: var(--mg-border);
+  border-radius: 6px;
+  animation: mg-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ─── Selection ──────────────────────────────────────────────────────────── */
+
+::selection {
+  background-color: rgba(255, 107, 43, 0.25);
+  color: var(--mg-text);
 }
