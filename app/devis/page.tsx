@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   createDevis,
   getDevisList,
@@ -33,11 +32,11 @@ const STATUS_LABELS: Record<DevisStatus, string> = {
 };
 
 const STATUS_COLORS: Record<DevisStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 border-gray-200',
-  sent: 'bg-blue-50 text-blue-700 border-blue-200',
-  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  refused: 'bg-red-50 text-red-700 border-red-200',
-  expired: 'bg-amber-50 text-amber-700 border-amber-200',
+  draft: 'bg-[#2A2D3A] text-[#8B8FA8] border-[#3A3D4A]',
+  sent: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  accepted: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  refused: 'bg-red-500/10 text-red-400 border-red-500/20',
+  expired: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
 };
 
 export default function DevisPage() {
@@ -50,13 +49,7 @@ export default function DevisPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
 
-  // Create form state
-  const [form, setForm] = useState({
-    clientId: '',
-    tvaRate: '20',
-    validUntil: '',
-    notes: '',
-  });
+  const [form, setForm] = useState({ clientId: '', tvaRate: '20', validUntil: '', notes: '' });
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [itemForm, setItemForm] = useState({ description: '', quantity: '1', unitPriceHt: '0' });
 
@@ -116,14 +109,8 @@ export default function DevisPage() {
   const totalTtc = totalHt * (1 + tvaRate / 100);
 
   const handleCreateDevis = async () => {
-    if (!form.clientId) {
-      showToast('Sélectionnez un client', 'error');
-      return;
-    }
-    if (draftItems.length === 0) {
-      showToast('Ajoutez au moins une ligne', 'error');
-      return;
-    }
+    if (!form.clientId) { showToast('Sélectionnez un client', 'error'); return; }
+    if (draftItems.length === 0) { showToast('Ajoutez au moins une ligne', 'error'); return; }
     try {
       const created = await createDevis(garageId, form.clientId, draftItems, {
         tvaRate,
@@ -168,50 +155,35 @@ export default function DevisPage() {
     }
   };
 
+  const inputCls = 'border border-[#2A2D3A] rounded-xl px-4 py-3 bg-[#0F1117] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50';
+
   return (
     <AuthGuard>
-      <PageLayout activePage="devis" garageName="2roues Pasteur">
-        <header className="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-4 md:px-8 py-4 md:py-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Link>
-            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-slate-100">
-              Devis
-            </h1>
-          </div>
+      <PageLayout activePage="devis">
+        <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5">
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">Devis</h1>
         </header>
 
-        <main className="p-4 md:p-8 space-y-6 overflow-y-auto bg-gray-50/30">
+        <main className="p-4 md:p-8 space-y-6 overflow-y-auto">
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Create form */}
-            <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm space-y-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100">
-                Créer un devis
-              </h2>
+            <div className="lg:col-span-2 bg-[#1A1D27] p-6 rounded-xl border border-[#2A2D3A] space-y-4">
+              <h2 className="text-lg font-bold text-white">Créer un devis</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <select
                   value={form.clientId}
                   onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                  className="border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-800 text-sm"
+                  className={inputCls}
                 >
                   <option value="">Sélectionner un client</option>
                   {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600 dark:text-slate-300 whitespace-nowrap">
-                    TVA %
-                  </label>
+                  <label className="text-sm text-[#8B8FA8] whitespace-nowrap">TVA %</label>
                   <input
                     type="number"
                     min="0"
@@ -219,49 +191,43 @@ export default function DevisPage() {
                     step="0.1"
                     value={form.tvaRate}
                     onChange={(e) => setForm({ ...form, tvaRate: e.target.value })}
-                    className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-3 bg-white dark:bg-slate-800 text-sm"
+                    className={`flex-1 ${inputCls}`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">
-                    Valable jusqu&apos;au
-                  </label>
+                  <label className="block text-xs text-[#8B8FA8] mb-1">Valable jusqu&apos;au</label>
                   <input
                     type="date"
                     value={form.validUntil}
                     onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
-                    className="w-full border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-800 text-sm"
+                    className={`w-full ${inputCls}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-slate-400 mb-1">
-                    Notes
-                  </label>
+                  <label className="block text-xs text-[#8B8FA8] mb-1">Notes</label>
                   <input
                     type="text"
                     placeholder="Notes (optionnel)"
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    className="w-full border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 bg-white dark:bg-slate-800 text-sm"
+                    className={`w-full ${inputCls}`}
                   />
                 </div>
               </div>
 
               {/* Item form */}
-              <div className="border border-gray-100 dark:border-slate-700 rounded-xl p-4 space-y-3 bg-gray-50 dark:bg-slate-900">
-                <p className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                  Ajouter une ligne
-                </p>
+              <div className="border border-[#2A2D3A] rounded-xl p-4 space-y-3 bg-[#0F1117]">
+                <p className="text-sm font-medium text-[#8B8FA8]">Ajouter une ligne</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
                     type="text"
                     placeholder="Description"
                     value={itemForm.description}
                     onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                    className="sm:col-span-1 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-sm"
+                    className={`sm:col-span-1 border border-[#2A2D3A] rounded-lg px-3 py-2 bg-[#1A1D27] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50`}
                   />
                   <input
                     type="number"
@@ -270,7 +236,7 @@ export default function DevisPage() {
                     placeholder="Qté"
                     value={itemForm.quantity}
                     onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
-                    className="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-sm"
+                    className="border border-[#2A2D3A] rounded-lg px-3 py-2 bg-[#1A1D27] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
                   />
                   <div className="flex gap-2">
                     <input
@@ -280,11 +246,11 @@ export default function DevisPage() {
                       placeholder="PU HT €"
                       value={itemForm.unitPriceHt}
                       onChange={(e) => setItemForm({ ...itemForm, unitPriceHt: e.target.value })}
-                      className="flex-1 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-sm"
+                      className="flex-1 border border-[#2A2D3A] rounded-lg px-3 py-2 bg-[#1A1D27] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
                     />
                     <button
                       onClick={addDraftItem}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-3 py-2 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -298,28 +264,26 @@ export default function DevisPage() {
                   {draftItems.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800"
+                      className="flex items-center justify-between p-3 border border-[#2A2D3A] rounded-xl bg-[#0F1117]"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                          {item.description}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                        <p className="text-sm font-medium text-white">{item.description}</p>
+                        <p className="text-xs text-[#8B8FA8]">
                           {item.quantity} × {item.unitPriceHt.toFixed(2)} € ={' '}
                           {(item.quantity * item.unitPriceHt).toFixed(2)} € HT
                         </p>
                       </div>
                       <button
                         onClick={() => removeDraftItem(idx)}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        className="text-[#8B8FA8] hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
-                  <div className="flex justify-end gap-6 text-sm font-medium text-gray-700 dark:text-slate-300 pt-2 border-t border-gray-100 dark:border-slate-700">
+                  <div className="flex justify-end gap-6 text-sm font-medium text-[#C4C7D4] pt-2 border-t border-[#2A2D3A]">
                     <span>HT: {totalHt.toFixed(2)} €</span>
-                    <span>TTC: {totalTtc.toFixed(2)} €</span>
+                    <span className="text-white font-bold">TTC: {totalTtc.toFixed(2)} €</span>
                   </div>
                 </div>
               )}
@@ -327,21 +291,19 @@ export default function DevisPage() {
               <button
                 onClick={handleCreateDevis}
                 disabled={!form.clientId || draftItems.length === 0}
-                className="w-full px-4 py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full px-4 py-3 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Créer le devis
               </button>
             </div>
 
             {/* Devis list */}
-            <div className="lg:col-span-1 bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-4">
-                Devis existants
-              </h2>
+            <div className="lg:col-span-1 bg-[#1A1D27] p-6 rounded-xl border border-[#2A2D3A]">
+              <h2 className="text-lg font-bold text-white mb-4">Devis existants</h2>
               {isLoading ? (
-                <p className="text-sm text-gray-500 dark:text-slate-400">Chargement...</p>
+                <p className="text-sm text-[#8B8FA8]">Chargement...</p>
               ) : devisList.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-slate-400">Aucun devis</p>
+                <p className="text-sm text-[#8B8FA8]">Aucun devis</p>
               ) : (
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {devisList.map((devis) => (
@@ -350,24 +312,22 @@ export default function DevisPage() {
                       onClick={() => void handleSelectDevis(devis)}
                       className={`w-full text-left p-3 rounded-xl border transition-colors ${
                         selectedDevis?.id === devis.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                          : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'
+                          ? 'border-[#FF6B2B] bg-[#FF6B2B]/10'
+                          : 'border-[#2A2D3A] hover:bg-white/5'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-gray-500 dark:text-slate-400">
+                        <span className="text-xs text-[#8B8FA8]">
                           {devis.clientName ?? devis.clientId.slice(0, 8)}
                         </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[devis.status]}`}
-                        >
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[devis.status]}`}>
                           {STATUS_LABELS[devis.status]}
                         </span>
                       </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                      <div className="text-sm font-semibold text-white">
                         {devis.totalTtc.toFixed(2)} € TTC
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-slate-400">
+                      <div className="text-xs text-[#8B8FA8]">
                         {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
                       </div>
                     </button>
@@ -379,13 +339,11 @@ export default function DevisPage() {
 
           {/* Selected devis detail */}
           {selectedDevis && (
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200/60 dark:border-slate-700 shadow-sm">
+            <div className="bg-[#1A1D27] p-6 rounded-xl border border-[#2A2D3A]">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
-                    Détail du devis
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-slate-400">
+                  <h3 className="text-lg font-semibold text-white">Détail du devis</h3>
+                  <p className="text-sm text-[#8B8FA8]">
                     Client: {selectedDevis.clientName ?? selectedDevis.clientId} ·{' '}
                     {new Date(selectedDevis.createdAt).toLocaleDateString('fr-FR')}
                   </p>
@@ -393,23 +351,19 @@ export default function DevisPage() {
                 <div className="flex items-center gap-3">
                   <select
                     value={selectedDevis.status}
-                    onChange={(e) =>
-                      void handleStatusChange(selectedDevis, e.target.value as DevisStatus)
-                    }
+                    onChange={(e) => void handleStatusChange(selectedDevis, e.target.value as DevisStatus)}
                     disabled={selectedDevis.status === 'accepted'}
-                    className="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 disabled:opacity-50"
+                    className="border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
                   >
                     {(Object.keys(STATUS_LABELS) as DevisStatus[]).map((s) => (
-                      <option key={s} value={s}>
-                        {STATUS_LABELS[s]}
-                      </option>
+                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                     ))}
                   </select>
                   {selectedDevis.status !== 'accepted' && selectedDevis.status !== 'refused' && (
                     <button
                       onClick={() => void handleConvert()}
                       disabled={isConverting}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors"
                     >
                       {isConverting ? 'Conversion...' : 'Convertir en facture'}
                     </button>
@@ -417,40 +371,28 @@ export default function DevisPage() {
                 </div>
               </div>
 
-              {/* Items */}
               {selectedDevis.items && selectedDevis.items.length > 0 ? (
                 <div className="space-y-2 mb-4">
                   {selectedDevis.items.map((item: DevisItem) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 border border-gray-100 dark:border-slate-700 rounded-xl"
-                    >
+                    <div key={item.id} className="flex items-center justify-between p-3 border border-[#2A2D3A] rounded-xl">
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-slate-100">
-                          {item.description}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                        <p className="text-sm font-medium text-white">{item.description}</p>
+                        <p className="text-xs text-[#8B8FA8]">
                           {item.quantity} × {item.unitPriceHt.toFixed(2)} € HT
                         </p>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 dark:text-slate-100">
-                        {item.totalHt.toFixed(2)} € HT
-                      </span>
+                      <span className="text-sm font-semibold text-white">{item.totalHt.toFixed(2)} € HT</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
-                  Chargement des lignes...
-                </p>
+                <p className="text-sm text-[#8B8FA8] mb-4">Chargement des lignes...</p>
               )}
 
-              <div className="flex justify-end gap-6 text-sm font-medium text-gray-700 dark:text-slate-300 pt-3 border-t border-gray-100 dark:border-slate-700">
+              <div className="flex justify-end gap-6 text-sm font-medium text-[#C4C7D4] pt-3 border-t border-[#2A2D3A]">
                 <span>HT: {selectedDevis.totalHt.toFixed(2)} €</span>
                 <span>TVA {selectedDevis.tvaRate}%</span>
-                <span className="text-base font-bold text-gray-900 dark:text-slate-100">
-                  TTC: {selectedDevis.totalTtc.toFixed(2)} €
-                </span>
+                <span className="text-base font-bold text-white">TTC: {selectedDevis.totalTtc.toFixed(2)} €</span>
               </div>
             </div>
           )}

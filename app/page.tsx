@@ -34,12 +34,12 @@ function calcEvolution(current: number, previous: number): number | null {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 animate-pulse">
+    <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-5 animate-pulse">
       <div className="flex flex-col gap-4">
-        <div className="w-9 h-9 bg-gray-100 rounded-lg" />
+        <div className="w-9 h-9 bg-[#2A2D3A] rounded-lg" />
         <div className="space-y-2">
-          <div className="h-3 bg-gray-100 rounded w-2/3" />
-          <div className="h-7 bg-gray-200 rounded w-3/4" />
+          <div className="h-3 bg-[#2A2D3A] rounded w-2/3" />
+          <div className="h-7 bg-[#2A2D3A] rounded w-3/4" />
         </div>
       </div>
     </div>
@@ -58,12 +58,12 @@ interface KpiCardProps {
 
 function KpiCard({ icon, iconBg, label, value, sub }: KpiCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all duration-300">
+    <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-5 hover:border-[#3A3D4A] transition-colors">
       <div className="flex flex-col gap-3">
         <div className={`p-2 ${iconBg} rounded-lg w-fit`}>{icon}</div>
         <div>
-          <p className="text-xs md:text-sm font-medium text-gray-500">{label}</p>
-          <p className="text-xl md:text-2xl font-bold text-gray-900 mt-1 leading-tight">{value}</p>
+          <p className="text-xs md:text-sm font-medium text-[#8B8FA8]">{label}</p>
+          <p className="text-xl md:text-2xl font-bold text-white mt-1 leading-tight">{value}</p>
           {sub && <div className="mt-1">{sub}</div>}
         </div>
       </div>
@@ -96,16 +96,16 @@ export default function HomePage() {
   const evolution = stats ? calcEvolution(stats.caThisMonth, stats.caLastMonth) : null;
 
   return (
-    <PageLayout activePage="dashboard" garageName="2roues Pasteur">
-      <header className="bg-white border-b border-gray-100 px-4 md:px-8 py-4 md:py-5 shadow-sm">
+    <PageLayout activePage="dashboard">
+      <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">Tableau de bord</h1>
-            <p className="text-xs md:text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl md:text-3xl font-semibold text-white">Tableau de bord</h1>
+            <p className="text-xs md:text-sm text-[#8B8FA8] mt-1">
               Bienvenue sur l&apos;espace de gestion
             </p>
           </div>
-          <span className="inline-flex items-center self-start md:self-auto px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+          <span className="inline-flex items-center self-start md:self-auto px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2" />
             Garage actif
           </span>
@@ -115,7 +115,7 @@ export default function HomePage() {
       <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
         {/* Error banner */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
             {error}
           </div>
         )}
@@ -128,16 +128,16 @@ export default function HomePage() {
             <>
               {/* 1 — CA ce mois */}
               <KpiCard
-                icon={<Euro className="w-5 h-5 text-emerald-600" />}
-                iconBg="bg-emerald-50"
+                icon={<Euro className="w-5 h-5 text-emerald-400" />}
+                iconBg="bg-emerald-500/15"
                 label="CA ce mois"
                 value={stats ? fmtCurrency(stats.caThisMonth) : '—'}
               />
 
               {/* 2 — CA mois dernier */}
               <KpiCard
-                icon={<Euro className="w-5 h-5 text-blue-600" />}
-                iconBg="bg-blue-50"
+                icon={<Euro className="w-5 h-5 text-blue-400" />}
+                iconBg="bg-blue-500/15"
                 label="CA mois dernier"
                 value={stats ? fmtCurrency(stats.caLastMonth) : '—'}
               />
@@ -146,14 +146,12 @@ export default function HomePage() {
               <KpiCard
                 icon={
                   evolution !== null && evolution >= 0 ? (
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    <TrendingUp className="w-5 h-5 text-emerald-400" />
                   ) : (
-                    <TrendingDown className="w-5 h-5 text-red-500" />
+                    <TrendingDown className="w-5 h-5 text-red-400" />
                   )
                 }
-                iconBg={
-                  evolution !== null && evolution >= 0 ? 'bg-emerald-50' : 'bg-red-50'
-                }
+                iconBg={evolution !== null && evolution >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15'}
                 label="Évolution CA"
                 value={
                   evolution === null
@@ -164,7 +162,7 @@ export default function HomePage() {
                   evolution !== null ? (
                     <span
                       className={`text-xs font-medium ${
-                        evolution >= 0 ? 'text-emerald-600' : 'text-red-500'
+                        evolution >= 0 ? 'text-emerald-400' : 'text-red-400'
                       }`}
                     >
                       vs mois dernier
@@ -175,13 +173,13 @@ export default function HomePage() {
 
               {/* 4 — Factures en attente */}
               <KpiCard
-                icon={<Clock className="w-5 h-5 text-amber-600" />}
-                iconBg="bg-amber-50"
+                icon={<Clock className="w-5 h-5 text-amber-400" />}
+                iconBg="bg-amber-500/15"
                 label="Factures en attente"
                 value={stats ? String(stats.pendingInvoicesCount) : '—'}
                 sub={
                   stats && stats.pendingInvoicesAmount > 0 ? (
-                    <span className="text-xs text-amber-600 font-medium">
+                    <span className="text-xs text-amber-400 font-medium">
                       {fmtCurrency(stats.pendingInvoicesAmount)}
                     </span>
                   ) : undefined
@@ -190,23 +188,23 @@ export default function HomePage() {
 
               {/* 5 — Interventions actives */}
               <KpiCard
-                icon={<Wrench className="w-5 h-5 text-purple-600" />}
-                iconBg="bg-purple-50"
+                icon={<Wrench className="w-5 h-5 text-purple-400" />}
+                iconBg="bg-purple-500/15"
                 label="Interventions actives"
                 value={stats ? String(stats.activeInterventionsCount) : '—'}
               />
 
               {/* 6 — Devis en cours */}
               <KpiCard
-                icon={<FileText className="w-5 h-5 text-indigo-600" />}
-                iconBg="bg-indigo-50"
+                icon={<FileText className="w-5 h-5 text-[#FF6B2B]" />}
+                iconBg="bg-[#FF6B2B]/15"
                 label="Devis en cours"
                 value={stats ? String(stats.activeDevisCount) : '—'}
                 sub={
                   stats && stats.activeDevisCount > 0 ? (
                     <Link
                       href="/devis"
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                      className="text-xs text-[#FF6B2B] hover:text-[#FF8C55] font-medium"
                     >
                       Voir les devis →
                     </Link>
@@ -219,64 +217,64 @@ export default function HomePage() {
 
         {/* Recent Activity + Recent Clients */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6">
+          <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
+            <h3 className="text-base md:text-lg font-semibold text-white mb-4 md:mb-6">
               Activité récente
             </h3>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
-                <div className="p-2 bg-blue-50 rounded-lg mt-0.5 flex-shrink-0">
-                  <FileText className="w-4 h-4 text-blue-600" />
+                <div className="p-2 bg-blue-500/15 rounded-lg mt-0.5 flex-shrink-0">
+                  <FileText className="w-4 h-4 text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-900">
+                  <p className="text-xs md:text-sm font-medium text-white">
                     Facture FAC-2026-012 créée pour Sofia Bennani
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">Il y a 2h</p>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">Il y a 2h</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <div className="p-2 bg-emerald-50 rounded-lg mt-0.5 flex-shrink-0">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <div className="p-2 bg-emerald-500/15 rounded-lg mt-0.5 flex-shrink-0">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-900">
+                  <p className="text-xs md:text-sm font-medium text-white">
                     Intervention terminée pour Nadia El Mansouri
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">Il y a 4h</p>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">Il y a 4h</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <div className="p-2 bg-amber-50 rounded-lg mt-0.5 flex-shrink-0">
-                  <Wrench className="w-4 h-4 text-amber-600" />
+                <div className="p-2 bg-amber-500/15 rounded-lg mt-0.5 flex-shrink-0">
+                  <Wrench className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-900">
+                  <p className="text-xs md:text-sm font-medium text-white">
                     Réparation embrayage en cours pour Ahmed Ben Ali
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">Il y a 6h</p>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">Il y a 6h</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
-                <div className="p-2 bg-purple-50 rounded-lg mt-0.5 flex-shrink-0">
-                  <UserPlus className="w-4 h-4 text-purple-600" />
+                <div className="p-2 bg-purple-500/15 rounded-lg mt-0.5 flex-shrink-0">
+                  <UserPlus className="w-4 h-4 text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-900">
+                  <p className="text-xs md:text-sm font-medium text-white">
                     Client ajouté : Rachid Tazi
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">Hier</p>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">Hier</p>
                 </div>
               </li>
             </ul>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
             <div className="flex items-center justify-between mb-4 md:mb-6">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Clients récents</h3>
+              <h3 className="text-base md:text-lg font-semibold text-white">Clients récents</h3>
               <Link
                 href="/clients"
-                className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:bg-blue-50 px-2 md:px-3 py-1.5 rounded-lg transition-colors"
+                className="text-xs md:text-sm text-[#FF6B2B] hover:text-[#FF8C55] font-medium flex items-center gap-1 hover:bg-[#FF6B2B]/10 px-2 md:px-3 py-1.5 rounded-lg transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">Voir tous</span>
@@ -285,10 +283,10 @@ export default function HomePage() {
             </div>
             <ul className="space-y-3">
               {[
-                { initials: 'AB', bg: 'bg-blue-100', text: 'text-blue-700', name: 'Ahmed Ben Ali', vehicle: 'TMAX 125' },
-                { initials: 'KD', bg: 'bg-emerald-100', text: 'text-emerald-700', name: 'Karim Dupont', vehicle: 'Yamaha XMAX 300' },
-                { initials: 'FZ', bg: 'bg-purple-100', text: 'text-purple-700', name: 'Fatima Zahra', vehicle: 'Kymco Agility 125' },
-                { initials: 'NM', bg: 'bg-amber-100', text: 'text-amber-700', name: 'Nadia El Mansouri', vehicle: 'Honda Forza 300' },
+                { initials: 'AB', bg: 'bg-blue-500/20', text: 'text-blue-300', name: 'Ahmed Ben Ali', vehicle: 'TMAX 125' },
+                { initials: 'KD', bg: 'bg-emerald-500/20', text: 'text-emerald-300', name: 'Karim Dupont', vehicle: 'Yamaha XMAX 300' },
+                { initials: 'FZ', bg: 'bg-purple-500/20', text: 'text-purple-300', name: 'Fatima Zahra', vehicle: 'Kymco Agility 125' },
+                { initials: 'NM', bg: 'bg-amber-500/20', text: 'text-amber-300', name: 'Nadia El Mansouri', vehicle: 'Honda Forza 300' },
               ].map((c) => (
                 <li key={c.initials} className="flex items-center gap-3">
                   <div
@@ -297,8 +295,8 @@ export default function HomePage() {
                     {c.initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs md:text-sm font-medium text-gray-900 truncate">{c.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{c.vehicle}</p>
+                    <p className="text-xs md:text-sm font-medium text-white truncate">{c.name}</p>
+                    <p className="text-xs text-[#8B8FA8] truncate">{c.vehicle}</p>
                   </div>
                 </li>
               ))}
@@ -307,14 +305,14 @@ export default function HomePage() {
         </div>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-5">
+        <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-white mb-4 md:mb-5">
             Actions rapides
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Link
               href="/interventions"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm shadow-sm"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors font-medium text-sm"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden md:inline">Nouvelle intervention</span>
@@ -322,7 +320,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/factures"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 active:bg-emerald-800 transition-colors font-medium text-sm shadow-sm"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-[#2A2D3A] text-white rounded-lg hover:bg-white/10 transition-colors font-medium text-sm"
             >
               <FileText className="w-4 h-4" />
               <span className="hidden md:inline">Créer une facture</span>
@@ -330,7 +328,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/devis"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors font-medium text-sm shadow-sm"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-[#2A2D3A] text-white rounded-lg hover:bg-white/10 transition-colors font-medium text-sm"
             >
               <FileText className="w-4 h-4" />
               <span className="hidden md:inline">Créer un devis</span>
