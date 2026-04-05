@@ -30,44 +30,6 @@ function calcEvolution(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
-// ─── Motorcycle SVG ───────────────────────────────────────────────────────────
-
-function MotorcycleSVG() {
-  return (
-    <svg
-      viewBox="0 0 220 100"
-      fill="none"
-      width="220"
-      height="100"
-      aria-hidden="true"
-      style={{ opacity: 0.9 }}
-    >
-      {/* Body/frame */}
-      <path d="M60,70 L80,40 L120,35 L150,40 L160,70" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Wheels */}
-      <circle cx="45" cy="72" r="22" stroke="#FF6B2B" strokeWidth="1.5" />
-      <circle cx="175" cy="72" r="22" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Wheel spokes front */}
-      <line x1="45" y1="50" x2="45" y2="94" stroke="#FF6B2B" strokeWidth="1" />
-      <line x1="23" y1="72" x2="67" y2="72" stroke="#FF6B2B" strokeWidth="1" />
-      {/* Wheel spokes rear */}
-      <line x1="175" y1="50" x2="175" y2="94" stroke="#FF6B2B" strokeWidth="1" />
-      <line x1="153" y1="72" x2="197" y2="72" stroke="#FF6B2B" strokeWidth="1" />
-      {/* Fairing/windscreen */}
-      <path d="M120,35 L130,20 L145,25 L150,40" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Handlebar */}
-      <path d="M118,38 L125,30 L135,32" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Seat */}
-      <path d="M85,40 Q105,35 130,38" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Exhaust */}
-      <path d="M60,65 L40,68 L35,72" stroke="#FF6B2B" strokeWidth="1.5" />
-      {/* Fork */}
-      <path d="M38,55 L45,72" stroke="#FF6B2B" strokeWidth="2" />
-      <path d="M52,50 L45,72" stroke="#FF6B2B" strokeWidth="2" />
-    </svg>
-  );
-}
-
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 
 function Sparkline() {
@@ -210,15 +172,11 @@ export default function HomePage() {
               ⚡ Garage actif
             </span>
             <h1 className="text-2xl md:text-[32px] font-bold text-white leading-tight tracking-tight">
-              Bonjour, MecaniGo 👋
+              Bonjour, MecaniGo
             </h1>
             <p className="text-sm text-[#8B8FA8]">Votre garage en un coup d&apos;œil</p>
           </div>
 
-          {/* Right: bike SVG — desktop only */}
-          <div className="hidden md:block relative flex-shrink-0 select-none">
-            <MotorcycleSVG />
-          </div>
         </div>
 
         {/* ── ELEMENT 3: Stat Pills ──────────────────────────────────────── */}
