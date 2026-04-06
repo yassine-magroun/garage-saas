@@ -1,11 +1,11 @@
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
-import { Resend } from 'resend';
+import { MailtrapClient } from 'mailtrap';
 import type { NextRequest } from 'next/server';
 import { getFactureWithPayments } from '../../../../lib/api';
 import { InvoicePDF } from '../../../components/InvoicePDF';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const client = new MailtrapClient({ token: process.env.MAILTRAP_TOKEN! });
 
 const STATUS_LABELS: Record<string, string> = {
   unpaid: 'Non payée',
@@ -34,17 +34,17 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     body = (await request.json()) as SendEmailBody;
   } catch {
-    return new Response(
-      JSON.stringify({ error: 'Corps de requête invalide' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+    return Response.json({ error: 'Corps de requête invalide' }, { status: 400 });
   }
 
   const { factureId, garageId, clientEmail, clientName } = body;
+  console.log('Email route called', { factureId, garageId, clientEmail });
+  console.log('MAILTRAP_TOKEN exists:', !!process.env.MAILTRAP_TOKEN);
+
   if (!factureId || !garageId || !clientEmail) {
-    return new Response(
-      JSON.stringify({ error: 'factureId, garageId et clientEmail sont requis' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    return Response.json(
+      { error: 'factureId, garageId et clientEmail sont requis' },
+      { status: 400 },
     );
   }
 
@@ -53,16 +53,13 @@ export async function POST(request: NextRequest): Promise<Response> {
     facture = await getFactureWithPayments(factureId, garageId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Facture introuvable';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 404, headers: { 'Content-Type': 'application/json' } },
-    );
+    return Response.json({ error: message }, { status: 404 });
   }
 
   const invoiceNum = `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
   const statusLabel = STATUS_LABELS[facture.status] ?? facture.status;
 
-  // Generate PDF buffer — cast to Document props type expected by renderToBuffer
+  // Generate PDF buffer
   const element = React.createElement(InvoicePDF, { facture }) as React.ReactElement<
     React.ComponentProps<typeof import('@react-pdf/renderer').Document>
   >;
@@ -167,29 +164,28 @@ export async function POST(request: NextRequest): Promise<Response> {
 </html>
 `.trim();
 
+  console.log('Sending email via Mailtrap...');
   try {
-    await resend.emails.send({
-      from: 'MecaniGo <onboarding@resend.dev>',
-      to: clientEmail,
+    const result = await client.send({
+      from: { name: 'MecaniGo', email: 'hello@mecanigo.fr' },
+      to: [{ email: clientEmail }],
       subject: `Votre facture MecaniGo - ${invoiceNum}`,
       html: emailHtml,
+      text: `Bonjour ${clientName}, veuillez trouver votre facture ${invoiceNum} en pièce jointe.`,
       attachments: [
         {
           filename: `facture-${invoiceNum}.pdf`,
-          content: pdfBuffer,
+          content: pdfBuffer.toString('base64'),
+          type: 'application/pdf',
+          disposition: 'attachment',
         },
       ],
     });
+    console.log('Mailtrap result:', result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur envoi email';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
+    console.error('Mailtrap error:', err);
+    return Response.json({ error: String(err) }, { status: 500 });
   }
 
-  return new Response(
-    JSON.stringify({ success: true, invoiceNum }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+  return Response.json({ success: true, invoiceNum });
 }
