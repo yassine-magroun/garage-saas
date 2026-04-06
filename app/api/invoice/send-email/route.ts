@@ -169,7 +169,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   try {
     await resend.emails.send({
-      from: 'MecaniGo <factures@mecanigo.fr>',
+      from: 'MecaniGo <onboarding@resend.dev>',
       to: clientEmail,
       subject: `Votre facture MecaniGo - ${invoiceNum}`,
       html: emailHtml,
