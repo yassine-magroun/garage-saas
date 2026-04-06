@@ -1,11 +1,11 @@
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
-import { MailtrapClient } from 'mailtrap';
+import { Resend } from 'resend';
 import type { NextRequest } from 'next/server';
 import { getFactureWithPayments } from '../../../../lib/api';
 import { InvoicePDF } from '../../../components/InvoicePDF';
 
-const client = new MailtrapClient({ token: process.env.MAILTRAP_TOKEN! });
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
 const STATUS_LABELS: Record<string, string> = {
   unpaid: 'Non payée',
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const { factureId, garageId, clientEmail, clientName } = body;
   console.log('Email route called', { factureId, garageId, clientEmail });
-  console.log('MAILTRAP_TOKEN exists:', !!process.env.MAILTRAP_TOKEN);
+  console.log('RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
 
   if (!factureId || !garageId || !clientEmail) {
     return Response.json(
@@ -164,27 +164,25 @@ export async function POST(request: NextRequest): Promise<Response> {
 </html>
 `.trim();
 
-  console.log('Sending email via Mailtrap...');
-  try {
-    const result = await client.send({
-      from: { name: 'MecaniGo', email: 'hello@mecanigo.fr' },
-      to: [{ email: clientEmail }],
-      subject: `Votre facture MecaniGo - ${invoiceNum}`,
-      html: emailHtml,
-      text: `Bonjour ${clientName}, veuillez trouver votre facture ${invoiceNum} en pièce jointe.`,
-      attachments: [
-        {
-          filename: `facture-${invoiceNum}.pdf`,
-          content: pdfBuffer.toString('base64'),
-          type: 'application/pdf',
-          disposition: 'attachment',
-        },
-      ],
-    });
-    console.log('Mailtrap result:', result);
-  } catch (err) {
-    console.error('Mailtrap error:', err);
-    return Response.json({ error: String(err) }, { status: 500 });
+  console.log('Sending email via Resend...');
+  const { data, error } = await resend.emails.send({
+    from: 'MecaniGo <onboarding@resend.dev>',
+    to: [clientEmail],
+    subject: `Votre facture MecaniGo - ${invoiceNum}`,
+    html: emailHtml,
+    attachments: [
+      {
+        filename: `facture-${invoiceNum}.pdf`,
+        content: pdfBuffer.toString('base64'),
+      },
+    ],
+  });
+
+  console.log('Resend result:', { data, error });
+
+  if (error) {
+    console.error('Resend error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 
   return Response.json({ success: true, invoiceNum });
