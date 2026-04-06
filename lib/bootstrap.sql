@@ -208,5 +208,6 @@ insert into garages (name, phone, email, address)
 values ('2roues Pasteur', '+33 1 23 45 67 89', 'contact@2roues-pasteur.fr', '123 rue de la Paix, 75000 Paris')
 on conflict do nothing;
 
--- 15. SHOW YOUR GARAGE ID — copy this value into .env.local as NEXT_PUBLIC_GARAGE_ID
+-- 15. SHOW YOUR GARAGE ID — copy this value into 
+cal as NEXT_PUBLIC_GARAGE_ID
 select id as "YOUR_GARAGE_ID — copy into .env.local" from garages where name = '2roues Pasteur' limit 1;
