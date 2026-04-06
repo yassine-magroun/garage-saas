@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Euro, Clock, CreditCard, X } from 'lucide-react';
+import { Euro, Clock, CreditCard, X, FileDown, Mail } from 'lucide-react';
 import { getFacturesList, getFactureWithPayments, addPayment } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
 import type { Facture, FactureStatus, Payment, PaymentMethod } from '../../lib/types';
@@ -37,6 +37,7 @@ export default function FacturesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Payment modal
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState<{
     amount: string;
@@ -44,6 +45,12 @@ export default function FacturesPage() {
     notes: string;
   }>({ amount: '', method: 'cash', notes: '' });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Email modal
+  const [emailModal, setEmailModal] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<Facture | null>(null);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const [filter, setFilter] = useState<FactureStatus | 'all'>('all');
 
@@ -107,6 +114,43 @@ export default function FacturesPage() {
       showToast(err instanceof Error ? err.message : 'Erreur ajout paiement', 'error');
     } finally {
       setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleDownloadPdf = (facture: Facture) => {
+    window.open(`/api/invoice/pdf?factureId=${facture.id}&garageId=${garageId}`, '_blank');
+  };
+
+  const handleOpenEmailModal = (facture: Facture) => {
+    setEmailTarget(facture);
+    setEmailAddress('');
+    setEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailTarget || !emailAddress.trim()) return;
+    setIsSendingEmail(true);
+    try {
+      const res = await fetch('/api/invoice/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          factureId: emailTarget.id,
+          garageId,
+          clientEmail: emailAddress.trim(),
+          clientName: emailTarget.clientName ?? '',
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        throw new Error(data.error ?? 'Erreur envoi');
+      }
+      setEmailModal(false);
+      showToast('Email envoyé avec succès !', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur envoi email', 'error');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -191,39 +235,64 @@ export default function FacturesPage() {
                 <p className="text-sm text-[#8B8FA8]">Aucune facture</p>
               ) : (
                 filtered.map((facture) => (
-                  <button
+                  <div
                     key={facture.id}
-                    onClick={() => void handleSelectFacture(facture)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                    className={`rounded-xl border transition-all ${
                       selectedFacture?.id === facture.id
                         ? 'border-[#FF6B2B] bg-[#FF6B2B]/10'
                         : 'border-[#2A2D3A] bg-[#1A1D27] hover:border-[#3A3D4A]'
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {facture.clientName ?? facture.clientId.slice(0, 8)}
-                        </p>
-                        <p className="text-xs text-[#8B8FA8]">
-                          {new Date(facture.createdAt).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[facture.status]}`}>
-                        {STATUS_LABELS[facture.status]}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#C4C7D4]">
-                        Total: <strong className="text-white">{facture.totalTtc.toFixed(2)} €</strong>
-                      </span>
-                      {facture.amountPaid > 0 && (
-                        <span className="text-emerald-400">
-                          Payé: {facture.amountPaid.toFixed(2)} €
+                    {/* Main clickable area */}
+                    <button
+                      onClick={() => void handleSelectFacture(facture)}
+                      className="w-full text-left p-4"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {facture.clientName ?? facture.clientId.slice(0, 8)}
+                          </p>
+                          <p className="text-xs text-[#8B8FA8]">
+                            {new Date(facture.createdAt).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[facture.status]}`}>
+                          {STATUS_LABELS[facture.status]}
                         </span>
-                      )}
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#C4C7D4]">
+                          Total: <strong className="text-white">{facture.totalTtc.toFixed(2)} €</strong>
+                        </span>
+                        {facture.amountPaid > 0 && (
+                          <span className="text-emerald-400">
+                            Payé: {facture.amountPaid.toFixed(2)} €
+                          </span>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* PDF + Email actions */}
+                    <div className="flex gap-2 px-4 pb-3">
+                      <button
+                        onClick={() => handleDownloadPdf(facture)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                        title="Télécharger PDF"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        PDF
+                      </button>
+                      <button
+                        onClick={() => handleOpenEmailModal(facture)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                        title="Envoyer par email"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        Email
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
@@ -294,6 +363,24 @@ export default function FacturesPage() {
                   </div>
                 )}
 
+                {/* Action buttons in detail panel */}
+                <div className="flex gap-2 pt-2 border-t border-[#2A2D3A]">
+                  <button
+                    onClick={() => handleDownloadPdf(selectedFacture)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Télécharger PDF
+                  </button>
+                  <button
+                    onClick={() => handleOpenEmailModal(selectedFacture)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#FF6B2B]/30 text-xs font-medium text-[#FF6B2B] hover:bg-[#FF6B2B]/10 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    Envoyer par email
+                  </button>
+                </div>
+
                 {(selectedFacture.status === 'unpaid' || selectedFacture.status === 'partial') && (
                   <button
                     onClick={() => setPaymentModal(true)}
@@ -334,7 +421,6 @@ export default function FacturesPage() {
                     className="w-full border border-[#2A2D3A] rounded-xl px-4 py-3 bg-[#0F1117] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Mode de paiement</label>
                   <select
@@ -347,7 +433,6 @@ export default function FacturesPage() {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Notes (optionnel)</label>
                   <input
@@ -373,6 +458,59 @@ export default function FacturesPage() {
                   className="flex-1 px-4 py-3 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors"
                 >
                   {isSubmittingPayment ? 'Enregistrement...' : 'Valider'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email modal */}
+        {emailModal && emailTarget && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Envoyer par email</h3>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">
+                    Facture de {emailTarget.clientName ?? emailTarget.clientId.slice(0, 8)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEmailModal(false)}
+                  className="text-[#8B8FA8] hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">
+                  Adresse email du client
+                </label>
+                <input
+                  type="email"
+                  placeholder="client@exemple.fr"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  className="w-full border border-[#2A2D3A] rounded-xl px-4 py-3 bg-[#0F1117] text-white placeholder-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setEmailModal(false)}
+                  className="flex-1 px-4 py-3 border border-[#2A2D3A] rounded-xl text-sm font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => void handleSendEmail()}
+                  disabled={isSendingEmail || !emailAddress.trim()}
+                  className="flex-1 px-4 py-3 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  {isSendingEmail ? 'Envoi...' : 'Envoyer'}
                 </button>
               </div>
             </div>
