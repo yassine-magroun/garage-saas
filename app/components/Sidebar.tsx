@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 
 type SidebarItem = {
   href: string;
@@ -58,6 +59,17 @@ export default function Sidebar({
           })}
         </ul>
       </nav>
+
+      {/* User */}
+      <div className="px-4 py-4 border-t border-[#2A2D3A]">
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: 'w-8 h-8',
+            },
+          }}
+        />
+      </div>
     </aside>
   );
 }
