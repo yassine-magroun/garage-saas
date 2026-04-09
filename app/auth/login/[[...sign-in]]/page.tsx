@@ -49,31 +49,6 @@ export default function LoginPage() {
           appearance={{
             variables: {
               colorPrimary: "#FF6B2B",
-              colorBackground: "rgba(255,255,255,0.03)",
-              colorText: "#ffffff",
-              colorTextSecondary: "rgba(255,255,255,0.5)",
-              colorInputBackground: "rgba(255,255,255,0.05)",
-              colorInputText: "#ffffff",
-              borderRadius: "14px",
-              fontFamily: "inherit",
-            },
-            elements: {
-              rootBox: "w-full max-w-[400px]",
-              card: "bg-transparent shadow-none border border-white/[0.06] backdrop-blur-xl rounded-2xl",
-              headerTitle: "text-white text-xl font-bold",
-              headerSubtitle: "text-white/40",
-              socialButtonsBlockButton: "border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] rounded-xl",
-              socialButtonsBlockButtonText: "text-white font-semibold text-sm",
-              dividerLine: "bg-white/[0.08]",
-              dividerText: "text-white/25 uppercase text-xs tracking-widest",
-              formFieldLabel: "text-white/60 text-xs font-semibold",
-              formFieldInput: "bg-white/[0.04] border-white/[0.08] text-white rounded-xl focus:border-[#FF6B2B]/50 focus:ring-[#FF6B2B]/10",
-              formButtonPrimary: "bg-gradient-to-r from-[#FF6B2B] to-[#E55A1C] hover:shadow-lg hover:shadow-[#FF6B2B]/25 rounded-xl font-bold text-sm tracking-wide",
-              footerActionText: "text-white/40",
-              footerActionLink: "text-[#FF6B2B] font-semibold hover:text-[#FF8C5A]",
-              formFieldInputShowPasswordButton: "text-white/30 hover:text-white/60",
-              identityPreviewEditButton: "text-[#FF6B2B]",
-              alert: "bg-red-500/10 border-red-500/20 text-red-400",
             },
           }}
         />
