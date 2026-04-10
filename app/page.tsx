@@ -405,7 +405,7 @@ export default function HomePage() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Link
-              href="/interventions"
+              href="/interventions?openModal=true"
               className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors font-medium text-sm"
             >
               <Plus className="w-4 h-4" />

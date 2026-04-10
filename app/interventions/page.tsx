@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { Plus, CheckCircle, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 const initialInterventions = [
   { id: 'int1', clientId: '2', vehicle: 'Yamaha XMAX 300', type: 'Révision complète', status: 'En cours', date: '25/03/2026', price: 120 },
@@ -30,6 +31,7 @@ const statusDot: Record<string, string> = {
 };
 
 export default function InterventionsPage() {
+  const searchParams = useSearchParams();
   const [interventions, setInterventions] = useState(initialInterventions);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [selectedIntervention, setSelectedIntervention] = useState<typeof initialInterventions[0] | null>(null);
@@ -58,6 +60,12 @@ export default function InterventionsPage() {
     if (typeof window === 'undefined') return;
     localStorage.setItem('interventions', JSON.stringify(interventions));
   }, [interventions]);
+
+  useEffect(() => {
+    if (searchParams.get('openModal') === 'true') {
+      setIsNewInterventionOpen(true);
+    }
+  }, [searchParams]);
 
   const markAsCompleted = (index: number) => {
     setInterventions(interventions.map((item, i) =>
