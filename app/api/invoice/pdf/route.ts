@@ -1,7 +1,7 @@
 import { renderToBuffer, Document } from '@react-pdf/renderer';
 import React from 'react';
 import type { NextRequest } from 'next/server';
-import { getFactureWithPayments } from '../../../../lib/api';
+import { getFactureWithPayments, getGarageSettings } from '../../../../lib/api';
 import { InvoicePDF } from '../../../components/InvoicePDF';
 
 export async function GET(request: NextRequest): Promise<Response> {
@@ -27,10 +27,22 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 
+  const garage = await getGarageSettings(garageId);
+
   const invoiceNum = `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
 
+  const garageProps = garage
+    ? {
+        garageName: garage.name,
+        garageAddress: garage.address,
+        garagePhone: garage.phone,
+        garageEmail: garage.email,
+        garageSiret: garage.siret ? `SIRET : ${garage.siret}` : undefined,
+      }
+    : {};
+
   // Cast to Document element type expected by renderToBuffer
-  const element = React.createElement(InvoicePDF, { facture }) as React.ReactElement<
+  const element = React.createElement(InvoicePDF, { facture, ...garageProps }) as React.ReactElement<
     React.ComponentProps<typeof Document>
   >;
   const buffer = await renderToBuffer(element);

@@ -116,6 +116,9 @@ export interface Facture {
   items?: FactureItem[];
   payments?: Payment[];
   clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientAddress?: string;
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────

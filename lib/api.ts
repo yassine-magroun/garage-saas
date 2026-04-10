@@ -113,7 +113,7 @@ function mapPayment(row: Record<string, unknown>): Payment {
 }
 
 function mapFacture(row: Record<string, unknown>): Facture {
-  const clientsField = row.clients as { name: string } | null | undefined;
+  const clientsField = row.clients as { name: string; phone?: string; email?: string; address?: string } | null | undefined;
   return {
     id: row.id as string,
     garageId: row.garage_id as string,
@@ -128,6 +128,9 @@ function mapFacture(row: Record<string, unknown>): Facture {
     notes: row.notes as string | null,
     createdAt: row.created_at as string,
     clientName: clientsField?.name ?? undefined,
+    clientPhone: clientsField?.phone ?? undefined,
+    clientEmail: clientsField?.email ?? undefined,
+    clientAddress: clientsField?.address ?? undefined,
   };
 }
 
@@ -488,7 +491,7 @@ export async function convertDevisToFacture(
 export async function getFactureWithPayments(id: string, garageId: string): Promise<Facture> {
   const { data, error } = await supabase
     .from('factures')
-    .select('*, clients(name)')
+    .select('*, clients(name, phone, email, address)')
     .eq('id', id)
     .eq('garage_id', garageId)
     .single();
@@ -572,6 +575,28 @@ export async function addPayment(
   }
 
   return mapPayment(paymentRow as Record<string, unknown>);
+}
+
+// ─── Garage Settings ──────────────────────────────────────────────────────────
+
+export async function getGarageSettings(garageId: string): Promise<import('./types').GarageSettings | null> {
+  const { data, error } = await supabase
+    .from('garages')
+    .select('id, name, phone, address, email, siret, created_at, updated_at')
+    .eq('id', garageId)
+    .single();
+  if (error) return null;
+  const r = data as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    name: String(r.name ?? ''),
+    phone: String(r.phone ?? ''),
+    address: String(r.address ?? ''),
+    email: r.email ? String(r.email) : undefined,
+    siret: r.siret ? String(r.siret) : undefined,
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
 }
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────

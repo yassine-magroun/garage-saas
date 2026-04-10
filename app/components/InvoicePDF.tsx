@@ -323,8 +323,12 @@ export function InvoicePDF({
         {/* ── Client block ── */}
         <View style={s.clientSection}>
           <Text style={s.clientLabel}>Facturé à :</Text>
-          <Text style={s.clientName}>{facture.clientName ?? facture.clientId}</Text>
-          <Text style={s.clientAddress}>Client MecaniGo</Text>
+          <Text style={s.clientName}>{facture.clientName ?? '—'}</Text>
+          <Text style={s.clientAddress}>
+            {[facture.clientPhone, facture.clientEmail, facture.clientAddress]
+              .filter(Boolean)
+              .join('\n')}
+          </Text>
         </View>
 
         {/* ── Items table ── */}
