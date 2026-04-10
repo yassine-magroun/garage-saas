@@ -1,5 +1,3 @@
-import { supabase } from './supabase';
-
 export type Garage = {
   id: string;
   name: string;
@@ -9,37 +7,39 @@ export type GarageContext = {
   garageId: string;
 };
 
+// Module-level cache — valid for the lifetime of the browser session
+let cachedGarageId: string | null = null;
+
 export const getGarageId = async (): Promise<string> => {
-  // Dev/demo mode: bypass auth + users table lookup entirely
+  // Dev/demo mode: bypass auth entirely
   const envGarageId = process.env.NEXT_PUBLIC_GARAGE_ID;
   if (envGarageId) return envGarageId;
 
-  // Production: resolve from Supabase Auth session -> users table
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
+  if (cachedGarageId) return cachedGarageId;
 
-  if (sessionError) throw sessionError;
+  const res = await fetch('/api/garage/me');
+  if (!res.ok) throw new Error('Utilisateur non authentifié');
 
-  const userId = session?.user?.id;
-  if (!userId) throw new Error('Utilisateur non authentifié');
+  const json = await res.json() as { garageId: string | null };
 
-  const { data: userRow, error: userError } = await supabase
-    .from('users')
-    .select('garage_id')
-    .eq('id', userId)
-    .single();
-
-  if (userError) throw userError;
-  if (!userRow?.garage_id) {
-    throw new Error('Garage non défini pour cet utilisateur');
+  if (!json.garageId) {
+    // No garage configured — redirect to onboarding
+    if (typeof window !== 'undefined') {
+      window.location.href = '/onboarding';
+    }
+    throw new Error('Garage non configuré');
   }
 
-  return userRow.garage_id;
+  cachedGarageId = json.garageId;
+  return json.garageId;
 };
 
 export const getGarageContext = async (): Promise<GarageContext> => {
   const garageId = await getGarageId();
   return { garageId };
+};
+
+/** Call this after creating/switching a garage to force a fresh lookup. */
+export const clearGarageCache = (): void => {
+  cachedGarageId = null;
 };

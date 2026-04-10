@@ -577,6 +577,18 @@ export async function addPayment(
   return mapPayment(paymentRow as Record<string, unknown>);
 }
 
+// ─── Garage by Clerk user ─────────────────────────────────────────────────────
+
+export async function getGarageByClerkUserId(clerkUserId: string): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from('garages')
+    .select('id')
+    .eq('clerk_user_id', clerkUserId)
+    .single();
+  if (error || !data) return null;
+  return { id: String((data as Record<string, unknown>).id) };
+}
+
 // ─── Garage Settings ──────────────────────────────────────────────────────────
 
 export async function getGarageSettings(garageId: string): Promise<import('./types').GarageSettings | null> {
