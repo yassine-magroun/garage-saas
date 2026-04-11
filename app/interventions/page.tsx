@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
@@ -38,7 +39,7 @@ function nextStatus(current: string): IntStatus | null {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function InterventionsPage() {
+function InterventionsContent() {
   const searchParams = useSearchParams();
   const [garageId, setGarageId] = useState('');
   const [interventions, setInterventions] = useState<Intervention[]>([]);
@@ -333,5 +334,13 @@ export default function InterventionsPage() {
 
       <Toast toast={toast} />
     </PageLayout>
+  );
+}
+
+export default function InterventionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0F1117]" />}>
+      <InterventionsContent />
+    </Suspense>
   );
 }
