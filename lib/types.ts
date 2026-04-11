@@ -22,10 +22,11 @@ export type Client = {
   phone: string;
   email?: string;
   address?: string;
-  vehicle?: string;       // vehicle text — model description
-  licensePlate?: string;  // license_plate
+  vehicle?: string;           // vehicle text — model description
+  licensePlate?: string;      // license_plate
   vip: boolean;
-  lastVisit: number;      // last_visit_days int
+  lastVisit: number;          // last_visit_days int
+  lastContactDate?: string | null; // last_contact_date timestamp
   createdAt: string;
   updatedAt: string;
 };
@@ -107,6 +108,7 @@ export interface Facture {
   garageId: string;
   clientId: string;
   devisId: string | null;
+  interventionId?: string | null;
   status: FactureStatus;
   totalHt: number;
   tvaRate: number;
@@ -159,6 +161,20 @@ export interface AnalyticsStats {
   conversionRate: number;      // 0–100 integer
   avgPaymentDelayDays: number; // rounded to 1 decimal
   weeklyRevenue: WeeklyRevenue[];
+}
+
+// ── Trigger Logs ──────────────────────────────────────────────────────────────
+
+export interface TriggerLog {
+  id: string;
+  garageId: string;
+  triggerType: string;
+  resourceType: string | null;
+  resourceId: string | null;
+  clientId: string | null;
+  status: 'success' | 'error' | 'skipped';
+  message: string | null;
+  createdAt: string;
 }
 
 // ── Status History ────────────────────────────────────────────────────────────

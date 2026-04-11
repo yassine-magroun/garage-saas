@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { Resend } from 'resend';
 import { supabase } from '../../../../lib/supabase';
+import { createFactureFromIntervention, logTrigger } from '../../../../lib/api';
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -45,6 +46,24 @@ export async function POST(req: Request): Promise<Response> {
     .eq('garage_id', garageId);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // Trigger 4: Prêt → auto-create facture draft
+  if (newStatus === 'Prêt') {
+    try {
+      const facture = await createFactureFromIntervention(interventionId, garageId);
+      // Return facture ref in response so UI can show it
+      void logTrigger(garageId, 'AUTO_FACTURE_DRAFT', {
+        resourceType: 'facture',
+        resourceId: facture.id,
+        message: `Brouillon ${facture.displayRef ?? facture.id} pré-rempli`,
+      });
+    } catch {
+      void logTrigger(garageId, 'AUTO_FACTURE_DRAFT', {
+        status: 'error',
+        message: 'Échec création brouillon facture',
+      });
+    }
+  }
 
   // Send email only when status → "Prêt"
   if (newStatus === 'Prêt' && clientEmail) {

@@ -194,6 +194,26 @@ alter table factures add column if not exists display_ref text;
 alter table garages  add column if not exists clerk_user_id text unique;
 alter table garages  add column if not exists logo_url text;
 
+-- Sprint 4: client retention tracking
+alter table clients add column if not exists last_contact_date timestamptz;
+
+-- 16b. TRIGGER LOGS — tracks all automated trigger actions
+create table if not exists trigger_logs (
+  id          uuid primary key default gen_random_uuid(),
+  garage_id   uuid not null references garages(id) on delete cascade,
+  trigger_type text not null,
+  resource_type text,
+  resource_id  text,
+  client_id    text,
+  status       text not null default 'success' check (status in ('success','error','skipped')),
+  message      text,
+  metadata     jsonb,
+  created_at   timestamptz not null default now()
+);
+alter table trigger_logs disable row level security;
+create index if not exists idx_trigger_logs_garage_id  on trigger_logs(garage_id);
+create index if not exists idx_trigger_logs_created_at on trigger_logs(created_at desc);
+
 -- Supabase Storage bucket for garage logos (run once)
 -- insert into storage.buckets (id, name, public) values ('garage-logos', 'garage-logos', true) on conflict do nothing;
 

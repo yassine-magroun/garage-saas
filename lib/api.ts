@@ -22,6 +22,7 @@ import type {
   AnalyticsStats,
   StatusHistory,
   Prestation,
+  TriggerLog,
 } from './types';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -47,6 +48,18 @@ async function nextDisplayRef(
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
+const mapTriggerLog = (r: Record<string, unknown>): TriggerLog => ({
+  id: String(r.id),
+  garageId: String(r.garage_id),
+  triggerType: String(r.trigger_type),
+  resourceType: r.resource_type ? String(r.resource_type) : null,
+  resourceId: r.resource_id ? String(r.resource_id) : null,
+  clientId: r.client_id ? String(r.client_id) : null,
+  status: (r.status as TriggerLog['status']) ?? 'success',
+  message: r.message ? String(r.message) : null,
+  createdAt: String(r.created_at),
+});
+
 const mapClient = (r: Record<string, unknown>): Client => ({
   id: String(r.id),
   garageId: String(r.garage_id),
@@ -58,6 +71,7 @@ const mapClient = (r: Record<string, unknown>): Client => ({
   licensePlate: r.license_plate ? String(r.license_plate) : undefined,
   vip: Boolean(r.vip),
   lastVisit: Number(r.last_visit_days ?? 0),
+  lastContactDate: r.last_contact_date ? String(r.last_contact_date) : null,
   createdAt: String(r.created_at),
   updatedAt: String(r.updated_at),
 });
@@ -150,6 +164,7 @@ function mapFacture(row: Record<string, unknown>): Facture {
     garageId: row.garage_id as string,
     clientId: row.client_id as string,
     devisId: row.devis_id as string | null,
+    interventionId: row.intervention_id ? String(row.intervention_id) : null,
     status: row.status as FactureStatus,
     totalHt: Number(row.total_ht),
     tvaRate: Number(row.tva_rate),
@@ -177,6 +192,42 @@ const mapStatusHistory = (r: Record<string, unknown>): StatusHistory => ({
   changedAt: String(r.changed_at),
   metadata: (r.metadata as Record<string, unknown>) ?? undefined,
 });
+
+// ─── Trigger Logging ──────────────────────────────────────────────────────────
+
+/** Fire-and-forget: insert a row into trigger_logs. Never throws. */
+export async function logTrigger(
+  garageId: string,
+  triggerType: string,
+  opts: {
+    resourceType?: string;
+    resourceId?: string;
+    clientId?: string;
+    status?: TriggerLog['status'];
+    message?: string;
+  } = {},
+): Promise<void> {
+  void supabase.from('trigger_logs').insert({
+    garage_id: garageId,
+    trigger_type: triggerType,
+    resource_type: opts.resourceType ?? null,
+    resource_id: opts.resourceId ?? null,
+    client_id: opts.clientId ?? null,
+    status: opts.status ?? 'success',
+    message: opts.message ?? null,
+  });
+}
+
+export async function getTriggerLogs(limit = 8): Promise<TriggerLog[]> {
+  const garageId = await getGarageId();
+  const { data } = await supabase
+    .from('trigger_logs')
+    .select('*')
+    .eq('garage_id', garageId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []).map((r) => mapTriggerLog(r as Record<string, unknown>));
+}
 
 // ─── Business Logic Helpers ───────────────────────────────────────────────────
 
@@ -406,6 +457,17 @@ export async function createDevis(
 
   await logStatusChange(garageId, 'devis', devisRow.id as string, null, 'draft');
 
+  const devisId = devisRow.id as string;
+
+  // Trigger 2: notify client about new devis (fire-and-forget)
+  if (typeof window !== 'undefined') {
+    void fetch('/api/notify/devis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ devisId, garageId }),
+    });
+  }
+
   return mapDevis(devisRow as Record<string, unknown>);
 }
 
@@ -467,6 +529,32 @@ export async function updateDevisStatus(
     (current as Record<string, unknown>).status as string,
     newStatus,
   );
+
+  // Trigger 4: devis accepted → auto-create intervention
+  if (newStatus === 'accepted') {
+    try {
+      const devis = await getDevisWithItems(id, garageId);
+      const type = devis.items?.[0]?.description ?? 'Prestation';
+      const created = await interventionsAPI.create({
+        clientId: devis.clientId,
+        type,
+        status: 'En attente' as Intervention['status'],
+        date: new Date().toISOString().slice(0, 10),
+        price: devis.totalHt,
+      });
+      await logTrigger(garageId, 'AUTO_INTERVENTION', {
+        resourceType: 'intervention',
+        resourceId: created.id,
+        clientId: devis.clientId,
+        message: `Intervention "${type}" créée depuis devis accepté`,
+      });
+    } catch {
+      await logTrigger(garageId, 'AUTO_INTERVENTION', {
+        status: 'error',
+        message: 'Échec création intervention automatique',
+      });
+    }
+  }
 }
 
 export async function convertDevisToFacture(
@@ -519,6 +607,15 @@ export async function convertDevisToFacture(
     logStatusChange(garageId, 'devis', devisId, devis.status, 'accepted'),
     logStatusChange(garageId, 'facture', factureId, null, 'unpaid'),
   ]);
+
+  // Trigger 2: notify client about new facture (fire-and-forget)
+  if (typeof window !== 'undefined') {
+    void fetch('/api/notify/facture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ factureId, garageId }),
+    });
+  }
 
   return getFactureWithPayments(factureId, garageId);
 }
@@ -585,7 +682,7 @@ export async function addPayment(
 
   const { data: factureCurrent, error: fetchError } = await supabase
     .from('factures')
-    .select('total_ttc, amount_paid, status')
+    .select('total_ttc, amount_paid, status, intervention_id, client_id')
     .eq('id', factureId)
     .eq('garage_id', garageId)
     .single();
@@ -609,6 +706,33 @@ export async function addPayment(
 
   if (prevStatus !== newStatus) {
     await logStatusChange(garageId, 'facture', factureId, prevStatus, newStatus);
+  }
+
+  const clientId = current.client_id as string;
+
+  // Trigger 2: notify client payment received (fire-and-forget)
+  if (typeof window !== 'undefined') {
+    void fetch('/api/notify/payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ factureId, garageId, amount }),
+    });
+  }
+
+  // Trigger 1: facture fully paid → advance linked intervention to "Livré"
+  if (newStatus === 'paid' && current.intervention_id) {
+    const intId = String(current.intervention_id);
+    await supabase
+      .from('interventions')
+      .update({ status: 'Livré', updated_at: new Date().toISOString() })
+      .eq('id', intId)
+      .eq('garage_id', garageId);
+    await logTrigger(garageId, 'INTERVENTION_STATUS', {
+      resourceType: 'intervention',
+      resourceId: intId,
+      clientId,
+      message: 'Intervention → Livré (facture payée)',
+    });
   }
 
   return mapPayment(paymentRow as Record<string, unknown>);
@@ -719,6 +843,64 @@ export async function getDashboardStats(garageId: string): Promise<DashboardStat
     activeInterventionsCount: activeResult.count ?? 0,
     activeDevisCount: devisResult.count ?? 0,
   };
+}
+
+// ─── Facture from Intervention (Trigger 4) ───────────────────────────────────
+
+/** Auto-create a facture draft from an intervention (Trigger 4: Prêt → facture). */
+export async function createFactureFromIntervention(
+  interventionId: string,
+  garageId: string,
+): Promise<Facture> {
+  const { data: intData, error: intError } = await supabase
+    .from('interventions')
+    .select('*')
+    .eq('id', interventionId)
+    .eq('garage_id', garageId)
+    .single();
+  if (intError) throw new Error(intError.message);
+  const intervention = mapIntervention(intData as Record<string, unknown>);
+
+  const displayRef = await nextDisplayRef('factures', garageId, 'FAC');
+  const tvaRate = 20;
+  const totalHt = intervention.price;
+  const totalTtc = totalHt * (1 + tvaRate / 100);
+
+  const { data: factureRow, error: factureError } = await supabase
+    .from('factures')
+    .insert({
+      garage_id: garageId,
+      client_id: intervention.clientId,
+      intervention_id: interventionId,
+      status: 'unpaid' as FactureStatus,
+      total_ht: totalHt,
+      tva_rate: tvaRate,
+      total_ttc: totalTtc,
+      amount_paid: 0,
+      display_ref: displayRef,
+    })
+    .select('*')
+    .single();
+  if (factureError) throw new Error(factureError.message);
+
+  const factureId = (factureRow as Record<string, unknown>).id as string;
+
+  await supabase.from('facture_items').insert({
+    facture_id: factureId,
+    garage_id: garageId,
+    description: intervention.type,
+    quantity: 1,
+    unit_price_ht: totalHt,
+  });
+
+  await logStatusChange(garageId, 'facture', factureId, null, 'unpaid');
+  await logTrigger(garageId, 'AUTO_FACTURE_DRAFT', {
+    resourceType: 'facture',
+    resourceId: factureId,
+    message: `Brouillon ${displayRef} créé depuis intervention ${interventionId}`,
+  });
+
+  return getFactureWithPayments(factureId, garageId);
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

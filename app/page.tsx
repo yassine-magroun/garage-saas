@@ -18,9 +18,9 @@ import {
   BarChart2,
   Timer,
 } from 'lucide-react';
-import { getDashboardStats, getAnalyticsStats } from '../lib/api';
+import { getDashboardStats, getAnalyticsStats, getTriggerLogs } from '../lib/api';
 import { getGarageId } from '../lib/garage';
-import type { DashboardStats, AnalyticsStats } from '../lib/types';
+import type { DashboardStats, AnalyticsStats, TriggerLog } from '../lib/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -153,6 +153,7 @@ function RevenueBarChart({ data }: { data: AnalyticsStats['weeklyRevenue'] }) {
 export default function HomePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsStats | null>(null);
+  const [triggerLogs, setTriggerLogs] = useState<TriggerLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,12 +161,14 @@ export default function HomePage() {
     const load = async () => {
       try {
         const garageId = await getGarageId();
-        const [s, a] = await Promise.all([
+        const [s, a, logs] = await Promise.all([
           getDashboardStats(garageId),
           getAnalyticsStats(garageId),
+          getTriggerLogs(8),
         ]);
         setStats(s);
         setAnalytics(a);
+        setTriggerLogs(logs);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur chargement');
       } finally {
@@ -560,6 +563,60 @@ export default function HomePage() {
               <span className="md:hidden">Devis</span>
             </Link>
           </div>
+        </div>
+
+        {/* ── Automation activity ───────────────────────────────────────── */}
+        <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-white mb-4">
+            Automatisations récentes
+          </h3>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-9 bg-[#2A2D3A] rounded animate-pulse" />
+              ))}
+            </div>
+          ) : triggerLogs.length === 0 ? (
+            <p className="text-sm text-[#8B8FA8]">Aucune automatisation déclenchée pour l&apos;instant.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {triggerLogs.map((log) => {
+                const icon =
+                  log.triggerType === 'DEVIS_NOTIFY' ? '📋' :
+                  log.triggerType === 'FACTURE_NOTIFY' ? '🧾' :
+                  log.triggerType === 'PAYMENT_NOTIFY' ? '✅' :
+                  log.triggerType === 'AUTO_INTERVENTION' ? '🔧' :
+                  log.triggerType === 'AUTO_FACTURE_DRAFT' ? '📄' :
+                  log.triggerType === 'INTERVENTION_STATUS' ? '⚙️' :
+                  log.triggerType === 'ALERT_INACTIVITY' ? '⚠️' :
+                  log.triggerType === 'ALERT_OVERDUE' ? '🚨' :
+                  log.triggerType === 'CLIENT_RETENTION' ? '🏍️' : '⚡';
+                const statusColor =
+                  log.status === 'success' ? 'text-emerald-400' :
+                  log.status === 'error' ? 'text-red-400' : 'text-[#8B8FA8]';
+                const ts = new Date(log.createdAt);
+                const relTime = (() => {
+                  const diffMs = Date.now() - ts.getTime();
+                  const diffMin = Math.floor(diffMs / 60000);
+                  if (diffMin < 60) return `il y a ${diffMin}min`;
+                  const diffH = Math.floor(diffMin / 60);
+                  if (diffH < 24) return `il y a ${diffH}h`;
+                  return ts.toLocaleDateString('fr-FR');
+                })();
+                return (
+                  <li key={log.id} className="flex items-start gap-3 py-1.5 border-b border-[#2A2D3A] last:border-0">
+                    <span className="text-base leading-none mt-0.5">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium truncate ${statusColor}`}>
+                        {log.message ?? log.triggerType}
+                      </p>
+                      <p className="text-[10px] text-[#8B8FA8] mt-0.5">{relTime}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
       </main>
