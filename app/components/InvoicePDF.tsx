@@ -18,8 +18,8 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR');
 }
 
-function padId(id: string): string {
-  return `FAC-${id.slice(0, 8).toUpperCase()}`;
+function padId(id: string, displayRef?: string): string {
+  return displayRef ?? `FAC-${id.slice(0, 8).toUpperCase()}`;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -260,7 +260,7 @@ export function InvoicePDF({
   garageSiret = 'SIRET : 123 456 789 00010',
   garageTva = 'TVA intracommunautaire : FR12 123456789',
 }: InvoicePDFProps) {
-  const invoiceNum = padId(facture.id);
+  const invoiceNum = padId(facture.id, facture.displayRef);
   const tvaAmount = facture.totalHt * (facture.tvaRate / 100);
   const resteDu = Math.max(0, facture.totalTtc - facture.amountPaid);
   const items: FactureItem[] = facture.items ?? [];

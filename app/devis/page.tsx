@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Copy } from 'lucide-react';
 import {
   createDevis,
   getDevisList,
   getDevisWithItems,
   updateDevisStatus,
   convertDevisToFacture,
+  duplicateDevis,
   clientsAPI,
+  prestationsAPI,
 } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
-import type { Devis, DevisStatus, DevisItem, Client } from '../../lib/types';
+import type { Devis, DevisStatus, DevisItem, Client, Prestation } from '../../lib/types';
 
 interface DraftItem {
   description: string;
@@ -44,10 +46,12 @@ export default function DevisPage() {
   const [garageId, setGarageId] = useState('');
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [selectedDevis, setSelectedDevis] = useState<Devis | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const [form, setForm] = useState({ clientId: '', tvaRate: '20', validUntil: '', notes: '' });
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
@@ -64,9 +68,14 @@ export default function DevisPage() {
       try {
         const gid = await getGarageId();
         setGarageId(gid);
-        const [devis, cls] = await Promise.all([getDevisList(gid), clientsAPI.getAll()]);
+        const [devis, cls, prests] = await Promise.all([
+          getDevisList(gid),
+          clientsAPI.getAll(),
+          prestationsAPI.getAll(gid).catch(() => [] as Prestation[]),
+        ]);
         setDevisList(devis);
         setClients(cls);
+        setPrestations(prests);
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Erreur chargement', 'error');
       } finally {
@@ -102,6 +111,27 @@ export default function DevisPage() {
 
   const removeDraftItem = (index: number) => {
     setDraftItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addPrestationToForm = (p: Prestation) => {
+    setDraftItems((prev) => [...prev, {
+      description: p.name,
+      quantity: 1,
+      unitPriceHt: p.priceHt,
+    }]);
+  };
+
+  const handleDuplicate = async (devis: Devis) => {
+    setIsDuplicating(true);
+    try {
+      const copy = await duplicateDevis(devis.id, garageId);
+      setDevisList((prev) => [copy, ...prev]);
+      showToast(`Devis dupliqué → ${copy.displayRef ?? copy.id.slice(0, 8)}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur duplication', 'error');
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   const totalHt = draftItems.reduce((sum, i) => sum + i.quantity * i.unitPriceHt, 0);
@@ -218,9 +248,31 @@ export default function DevisPage() {
                 </div>
               </div>
 
+              {/* Catalogue quick-add */}
+              {prestations.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const p = prestations.find((x) => x.id === e.target.value);
+                      if (p) addPrestationToForm(p);
+                      e.target.value = '';
+                    }}
+                    className={inputCls}
+                  >
+                    <option value="" disabled>⚡ Ajouter depuis le catalogue...</option>
+                    {prestations.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.category ? `[${p.category}] ` : ''}{p.name} — {p.priceHt.toFixed(2)} € HT
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Item form */}
               <div className="border border-[#2A2D3A] rounded-xl p-4 space-y-3 bg-[#0F1117]">
-                <p className="text-sm font-medium text-[#8B8FA8]">Ajouter une ligne</p>
+                <p className="text-sm font-medium text-[#8B8FA8]">Ajouter une ligne manuellement</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
                     type="text"
@@ -307,30 +359,47 @@ export default function DevisPage() {
               ) : (
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {devisList.map((devis) => (
-                    <button
+                    <div
                       key={devis.id}
-                      onClick={() => void handleSelectDevis(devis)}
-                      className={`w-full text-left p-3 rounded-xl border transition-colors ${
+                      className={`rounded-xl border transition-colors ${
                         selectedDevis?.id === devis.id
                           ? 'border-[#FF6B2B] bg-[#FF6B2B]/10'
                           : 'border-[#2A2D3A] hover:bg-white/5'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-[#8B8FA8]">
+                      <button
+                        onClick={() => void handleSelectDevis(devis)}
+                        className="w-full text-left p-3"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-mono text-[#FF6B2B]">
+                            {devis.displayRef ?? devis.id.slice(0, 8).toUpperCase()}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[devis.status]}`}>
+                            {STATUS_LABELS[devis.status]}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#8B8FA8] mb-0.5">
                           {devis.clientName ?? devis.clientId.slice(0, 8)}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[devis.status]}`}>
-                          {STATUS_LABELS[devis.status]}
-                        </span>
+                        </div>
+                        <div className="text-sm font-semibold text-white">
+                          {devis.totalTtc.toFixed(2)} € TTC
+                        </div>
+                        <div className="text-xs text-[#8B8FA8]">
+                          {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
+                        </div>
+                      </button>
+                      <div className="px-3 pb-2">
+                        <button
+                          onClick={() => void handleDuplicate(devis)}
+                          disabled={isDuplicating}
+                          className="inline-flex items-center gap-1 text-xs text-[#8B8FA8] hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+                        >
+                          <Copy className="w-3 h-3" />
+                          Dupliquer
+                        </button>
                       </div>
-                      <div className="text-sm font-semibold text-white">
-                        {devis.totalTtc.toFixed(2)} € TTC
-                      </div>
-                      <div className="text-xs text-[#8B8FA8]">
-                        {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
-                      </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -342,7 +411,9 @@ export default function DevisPage() {
             <div className="bg-[#1A1D27] p-6 rounded-xl border border-[#2A2D3A]">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Détail du devis</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    {selectedDevis.displayRef ?? 'Détail du devis'}
+                  </h3>
                   <p className="text-sm text-[#8B8FA8]">
                     Client: {selectedDevis.clientName ?? selectedDevis.clientId} ·{' '}
                     {new Date(selectedDevis.createdAt).toLocaleDateString('fr-FR')}

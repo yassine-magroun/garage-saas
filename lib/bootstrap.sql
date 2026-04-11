@@ -175,7 +175,25 @@ create table if not exists status_history (
 );
 alter table status_history disable row level security;
 
--- 12. INDEXES
+-- 12. PRESTATIONS CATALOGUE
+create table if not exists prestations (
+  id uuid primary key default gen_random_uuid(),
+  garage_id uuid not null references garages(id) on delete cascade,
+  name text not null,
+  price_ht numeric(12,2) not null default 0,
+  tva_rate numeric(5,2) not null default 20,
+  category text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table prestations disable row level security;
+
+-- display_ref: human-readable sequential IDs per garage
+alter table devis    add column if not exists display_ref text;
+alter table factures add column if not exists display_ref text;
+alter table garages  add column if not exists clerk_user_id text unique;
+
+-- 13. INDEXES
 create index if not exists idx_clients_garage_id        on clients(garage_id);
 create index if not exists idx_clients_created_at       on clients(created_at desc);
 create index if not exists idx_vehicles_garage_id       on vehicles(garage_id);
@@ -200,14 +218,15 @@ create index if not exists idx_status_history_garage_id on status_history(garage
 create index if not exists idx_status_history_changed_at on status_history(changed_at desc);
 create index if not exists idx_users_garage_id          on users(garage_id);
 
--- 13. COMPATIBILITY VIEW
+create index if not exists idx_prestations_garage_id on prestations(garage_id);
+
+-- 14. COMPATIBILITY VIEW
 create or replace view invoices as select * from factures;
 
--- 14. SEED — create your demo garage (skip if it already exists)
+-- 15. SEED — create your demo garage (skip if it already exists)
 insert into garages (name, phone, email, address)
 values ('2roues Pasteur', '+33 1 23 45 67 89', 'contact@2roues-pasteur.fr', '123 rue de la Paix, 75000 Paris')
 on conflict do nothing;
 
--- 15. SHOW YOUR GARAGE ID — copy this value into 
-cal as NEXT_PUBLIC_GARAGE_ID
+-- 16. SHOW YOUR GARAGE ID — copy this value into .env.local as NEXT_PUBLIC_GARAGE_ID
 select id as "YOUR_GARAGE_ID — copy into .env.local" from garages where name = '2roues Pasteur' limit 1;

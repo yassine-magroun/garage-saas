@@ -29,7 +29,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const garage = await getGarageSettings(garageId);
 
-  const invoiceNum = `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
+  const invoiceNum = facture.displayRef ?? `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
 
   const garageProps = garage
     ? {

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return Response.json({ error: message }, { status: 404 });
   }
 
-  const invoiceNum = `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
+  const invoiceNum = facture.displayRef ?? `FAC-${facture.id.slice(0, 8).toUpperCase()}`;
   const statusLabel = STATUS_LABELS[facture.status] ?? facture.status;
 
   // Generate PDF buffer

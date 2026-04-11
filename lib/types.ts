@@ -72,6 +72,7 @@ export interface Devis {
   createdAt: string;
   items?: DevisItem[];
   clientName?: string;
+  displayRef?: string;
 }
 
 // ── Factures ──────────────────────────────────────────────────────────────────
@@ -119,6 +120,20 @@ export interface Facture {
   clientPhone?: string;
   clientEmail?: string;
   clientAddress?: string;
+  displayRef?: string;
+}
+
+// ── Prestations ───────────────────────────────────────────────────────────────
+
+export interface Prestation {
+  id: string;
+  garageId: string;
+  name: string;
+  priceHt: number;
+  tvaRate: number;
+  category?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────

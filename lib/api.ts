@@ -20,6 +20,7 @@ import type {
   PaymentStatus,
   DashboardStats,
   StatusHistory,
+  Prestation,
 } from './types';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -27,6 +28,21 @@ import type {
 const isUuid = (v: unknown): v is string =>
   typeof v === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+/** Generate next human-readable sequential ref: DEV-2026-0001 / FAC-2026-0001 */
+async function nextDisplayRef(
+  table: 'devis' | 'factures',
+  garageId: string,
+  prefix: 'DEV' | 'FAC',
+): Promise<string> {
+  const year = new Date().getFullYear();
+  const { count } = await supabase
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('garage_id', garageId);
+  const seq = String((count ?? 0) + 1).padStart(4, '0');
+  return `${prefix}-${year}-${seq}`;
+}
 
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
@@ -85,6 +101,20 @@ function mapDevis(row: Record<string, unknown>): Devis {
     notes: row.notes as string | null,
     createdAt: row.created_at as string,
     clientName: clientsField?.name ?? undefined,
+    displayRef: row.display_ref ? String(row.display_ref) : undefined,
+  };
+}
+
+function mapPrestation(row: Record<string, unknown>): Prestation {
+  return {
+    id: String(row.id),
+    garageId: String(row.garage_id),
+    name: String(row.name ?? ''),
+    priceHt: Number(row.price_ht ?? 0),
+    tvaRate: Number(row.tva_rate ?? 20),
+    category: row.category ? String(row.category) : undefined,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
   };
 }
 
@@ -131,6 +161,7 @@ function mapFacture(row: Record<string, unknown>): Facture {
     clientPhone: clientsField?.phone ?? undefined,
     clientEmail: clientsField?.email ?? undefined,
     clientAddress: clientsField?.address ?? undefined,
+    displayRef: row.display_ref ? String(row.display_ref) : undefined,
   };
 }
 
@@ -342,6 +373,7 @@ export async function createDevis(
   const tvaRate = options?.tvaRate ?? 20;
   const totalHt = items.reduce((sum, i) => sum + i.quantity * i.unitPriceHt, 0);
   const totalTtc = totalHt * (1 + tvaRate / 100);
+  const displayRef = await nextDisplayRef('devis', garageId, 'DEV');
 
   const { data: devisRow, error: devisError } = await supabase
     .from('devis')
@@ -354,6 +386,7 @@ export async function createDevis(
       total_ttc: totalTtc,
       valid_until: options?.validUntil ?? null,
       notes: options?.notes ?? null,
+      display_ref: displayRef,
     })
     .select('*')
     .single();
@@ -441,6 +474,8 @@ export async function convertDevisToFacture(
 ): Promise<Facture> {
   const devis = await getDevisWithItems(devisId, garageId);
 
+  const factureDisplayRef = await nextDisplayRef('factures', garageId, 'FAC');
+
   const { data: factureRow, error: factureError } = await supabase
     .from('factures')
     .insert({
@@ -453,6 +488,7 @@ export async function convertDevisToFacture(
       total_ttc: devis.totalTtc,
       amount_paid: 0,
       notes: devis.notes,
+      display_ref: factureDisplayRef,
     })
     .select('*')
     .single();
@@ -673,4 +709,125 @@ export async function getDashboardStats(garageId: string): Promise<DashboardStat
     activeInterventionsCount: activeResult.count ?? 0,
     activeDevisCount: devisResult.count ?? 0,
   };
+}
+
+// ─── Prestations ──────────────────────────────────────────────────────────────
+
+export const prestationsAPI = {
+  async getAll(garageId: string): Promise<Prestation[]> {
+    const { data, error } = await supabase
+      .from('prestations')
+      .select('*')
+      .eq('garage_id', garageId)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(mapPrestation);
+  },
+
+  async create(
+    garageId: string,
+    payload: { name: string; priceHt: number; tvaRate: number; category?: string },
+  ): Promise<Prestation> {
+    const { data, error } = await supabase
+      .from('prestations')
+      .insert({
+        garage_id: garageId,
+        name: payload.name,
+        price_ht: payload.priceHt,
+        tva_rate: payload.tvaRate,
+        category: payload.category ?? null,
+      })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPrestation(data as Record<string, unknown>);
+  },
+
+  async update(
+    id: string,
+    garageId: string,
+    payload: Partial<{ name: string; priceHt: number; tvaRate: number; category: string }>,
+  ): Promise<Prestation> {
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (payload.name !== undefined) updates.name = payload.name;
+    if (payload.priceHt !== undefined) updates.price_ht = payload.priceHt;
+    if (payload.tvaRate !== undefined) updates.tva_rate = payload.tvaRate;
+    if (payload.category !== undefined) updates.category = payload.category || null;
+    const { data, error } = await supabase
+      .from('prestations')
+      .update(updates)
+      .eq('id', id)
+      .eq('garage_id', garageId)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPrestation(data as Record<string, unknown>);
+  },
+
+  async delete(id: string, garageId: string): Promise<void> {
+    const { error } = await supabase
+      .from('prestations')
+      .delete()
+      .eq('id', id)
+      .eq('garage_id', garageId);
+    if (error) throw new Error(error.message);
+  },
+};
+
+// ─── Duplication ──────────────────────────────────────────────────────────────
+
+export async function duplicateDevis(sourceId: string, garageId: string): Promise<Devis> {
+  const source = await getDevisWithItems(sourceId, garageId);
+  const items = (source.items ?? []).map((i) => ({
+    description: i.description,
+    quantity: i.quantity,
+    unitPriceHt: i.unitPriceHt,
+  }));
+  return createDevis(garageId, source.clientId, items, {
+    tvaRate: source.tvaRate,
+    notes: source.notes ?? undefined,
+    validUntil: source.validUntil ?? undefined,
+  });
+}
+
+export async function duplicateFacture(sourceId: string, garageId: string): Promise<Facture> {
+  const source = await getFactureWithPayments(sourceId, garageId);
+  const displayRef = await nextDisplayRef('factures', garageId, 'FAC');
+
+  const { data: factureRow, error: factureError } = await supabase
+    .from('factures')
+    .insert({
+      garage_id: garageId,
+      client_id: source.clientId,
+      devis_id: null,
+      status: 'unpaid' as FactureStatus,
+      total_ht: source.totalHt,
+      tva_rate: source.tvaRate,
+      total_ttc: source.totalTtc,
+      amount_paid: 0,
+      notes: source.notes,
+      display_ref: displayRef,
+    })
+    .select('*')
+    .single();
+  if (factureError) throw new Error(factureError.message);
+
+  const factureId = (factureRow as Record<string, unknown>).id as string;
+
+  const items = source.items ?? [];
+  if (items.length > 0) {
+    const { error: itemsError } = await supabase.from('facture_items').insert(
+      items.map((i) => ({
+        facture_id: factureId,
+        description: i.description,
+        quantity: i.quantity,
+        unit_price_ht: i.unitPriceHt,
+      })),
+    );
+    if (itemsError) throw new Error(itemsError.message);
+  }
+
+  await logStatusChange(garageId, 'facture', factureId, null, 'unpaid');
+  return getFactureWithPayments(factureId, garageId);
 }

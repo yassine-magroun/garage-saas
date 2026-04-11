@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Euro, Clock, CreditCard, X, FileDown, Mail } from 'lucide-react';
-import { getFacturesList, getFactureWithPayments, addPayment } from '../../lib/api';
+import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy } from 'lucide-react';
+import { getFacturesList, getFactureWithPayments, addPayment, duplicateFacture } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
 import type { Facture, FactureStatus, Payment, PaymentMethod } from '../../lib/types';
 
@@ -53,6 +53,7 @@ export default function FacturesPage() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const [filter, setFilter] = useState<FactureStatus | 'all'>('all');
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -154,6 +155,19 @@ export default function FacturesPage() {
     }
   };
 
+  const handleDuplicate = async (facture: Facture) => {
+    setIsDuplicating(true);
+    try {
+      const copy = await duplicateFacture(facture.id, garageId);
+      setFactures((prev) => [copy, ...prev]);
+      showToast(`Facture dupliquée → ${copy.displayRef ?? copy.id.slice(0, 8)}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur duplication', 'error');
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   const filtered = filter === 'all' ? factures : factures.filter((f) => f.status === filter);
 
   const caTotal = factures.filter((f) => f.status === 'paid').reduce((s, f) => s + f.totalTtc, 0);
@@ -250,6 +264,9 @@ export default function FacturesPage() {
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div>
+                          <p className="text-xs font-mono text-[#FF6B2B] mb-0.5">
+                            {facture.displayRef ?? facture.id.slice(0, 8).toUpperCase()}
+                          </p>
                           <p className="text-sm font-semibold text-white">
                             {facture.clientName ?? facture.clientId.slice(0, 8)}
                           </p>
@@ -273,7 +290,7 @@ export default function FacturesPage() {
                       </div>
                     </button>
 
-                    {/* PDF + Email actions */}
+                    {/* PDF + Email + Duplicate actions */}
                     <div className="flex gap-2 px-4 pb-3">
                       <button
                         onClick={() => handleDownloadPdf(facture)}
@@ -291,6 +308,15 @@ export default function FacturesPage() {
                         <Mail className="w-3.5 h-3.5" />
                         Email
                       </button>
+                      <button
+                        onClick={() => void handleDuplicate(facture)}
+                        disabled={isDuplicating}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
+                        title="Dupliquer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Dupliquer
+                      </button>
                     </div>
                   </div>
                 ))
@@ -303,7 +329,7 @@ export default function FacturesPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-base font-bold text-white">
-                      Facture — {selectedFacture.clientName ?? selectedFacture.clientId.slice(0, 8)}
+                      {selectedFacture.displayRef ?? selectedFacture.id.slice(0, 8).toUpperCase()} — {selectedFacture.clientName ?? selectedFacture.clientId.slice(0, 8)}
                     </h3>
                     <p className="text-xs text-[#8B8FA8]">
                       {new Date(selectedFacture.createdAt).toLocaleDateString('fr-FR')}
