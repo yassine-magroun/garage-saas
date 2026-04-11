@@ -148,6 +148,19 @@ export interface DashboardStats {
   activeDevisCount: number;
 }
 
+export interface WeeklyRevenue {
+  weekLabel: string;
+  ca: number;
+}
+
+export interface AnalyticsStats {
+  topClientName: string | null;
+  topClientRevenue: number;
+  conversionRate: number;      // 0–100 integer
+  avgPaymentDelayDays: number; // rounded to 1 decimal
+  weeklyRevenue: WeeklyRevenue[];
+}
+
 // ── Status History ────────────────────────────────────────────────────────────
 
 export type StatusHistoryResource = 'devis' | 'intervention' | 'facture';

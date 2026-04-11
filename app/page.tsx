@@ -14,10 +14,13 @@ import {
   UserPlus,
   Plus,
   Eye,
+  Crown,
+  BarChart2,
+  Timer,
 } from 'lucide-react';
-import { getDashboardStats } from '../lib/api';
+import { getDashboardStats, getAnalyticsStats } from '../lib/api';
 import { getGarageId } from '../lib/garage';
-import type { DashboardStats } from '../lib/types';
+import type { DashboardStats, AnalyticsStats } from '../lib/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,10 +120,39 @@ function KpiCard({ icon, iconBg, label, value, sub, dominant }: KpiCardProps) {
   );
 }
 
+// ─── Revenue bar chart ────────────────────────────────────────────────────────
+
+function RevenueBarChart({ data }: { data: AnalyticsStats['weeklyRevenue'] }) {
+  const max = Math.max(...data.map((d) => d.ca), 1);
+  return (
+    <div className="flex items-end gap-1.5 h-20 w-full">
+      {data.map((d, i) => {
+        const pct = (d.ca / max) * 100;
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div
+              className="w-full rounded-t-sm bg-[#FF6B2B]/70 hover:bg-[#FF6B2B] transition-colors relative group"
+              style={{ height: `${Math.max(pct, 2)}%` }}
+            >
+              {d.ca > 0 && (
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#1A1D27] border border-[#2A2D3A] text-[9px] text-white rounded px-1 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  {d.ca.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                </div>
+              )}
+            </div>
+            <span className="text-[8px] text-[#8B8FA8] truncate w-full text-center">{d.weekLabel}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -128,8 +160,12 @@ export default function HomePage() {
     const load = async () => {
       try {
         const garageId = await getGarageId();
-        const s = await getDashboardStats(garageId);
+        const [s, a] = await Promise.all([
+          getDashboardStats(garageId),
+          getAnalyticsStats(garageId),
+        ]);
         setStats(s);
+        setAnalytics(a);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur chargement');
       } finally {
@@ -307,6 +343,101 @@ export default function HomePage() {
               />
             </>
           )}
+        </div>
+
+        {/* ── Analytics ─────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Top client */}
+          <div
+            className="rounded-2xl border border-[#FF6B2B]/15 p-5 backdrop-blur-[12px]"
+            style={{ background: 'rgba(26,29,39,0.8)' }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-amber-500/15 rounded-lg">
+                <Crown className="w-4 h-4 text-amber-400" />
+              </div>
+              <span className="text-xs font-medium text-[#8B8FA8] uppercase tracking-wide">
+                Top client (30j)
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="h-8 bg-[#2A2D3A] rounded animate-pulse w-3/4" />
+            ) : analytics?.topClientName ? (
+              <>
+                <p className="text-base font-bold text-white truncate">{analytics.topClientName}</p>
+                <p className="text-sm text-[#FF6B2B] font-semibold mt-0.5 tabular-nums">
+                  {analytics.topClientRevenue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-[#8B8FA8]">Aucune donnée</p>
+            )}
+          </div>
+
+          {/* Conversion rate */}
+          <div
+            className="rounded-2xl border border-[#FF6B2B]/15 p-5 backdrop-blur-[12px]"
+            style={{ background: 'rgba(26,29,39,0.8)' }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-emerald-500/15 rounded-lg">
+                <BarChart2 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <span className="text-xs font-medium text-[#8B8FA8] uppercase tracking-wide">
+                Taux de conversion
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="h-8 bg-[#2A2D3A] rounded animate-pulse w-1/2" />
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-white tabular-nums">
+                  {analytics?.conversionRate ?? 0}
+                  <span className="text-lg font-medium text-[#8B8FA8] ml-0.5">%</span>
+                </p>
+                <p className="text-xs text-[#8B8FA8] mt-0.5">Devis acceptés / total devis</p>
+              </>
+            )}
+          </div>
+
+          {/* Avg payment delay */}
+          <div
+            className="rounded-2xl border border-[#FF6B2B]/15 p-5 backdrop-blur-[12px]"
+            style={{ background: 'rgba(26,29,39,0.8)' }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-purple-500/15 rounded-lg">
+                <Timer className="w-4 h-4 text-purple-400" />
+              </div>
+              <span className="text-xs font-medium text-[#8B8FA8] uppercase tracking-wide">
+                Délai moyen paiement
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="h-8 bg-[#2A2D3A] rounded animate-pulse w-1/2" />
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-white tabular-nums">
+                  {analytics?.avgPaymentDelayDays ?? 0}
+                  <span className="text-lg font-medium text-[#8B8FA8] ml-1">j</span>
+                </p>
+                <p className="text-xs text-[#8B8FA8] mt-0.5">Moyenne sur les factures payées</p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── 8-week revenue chart ───────────────────────────────────────── */}
+        <div
+          className="rounded-2xl border border-[#FF6B2B]/15 p-5 backdrop-blur-[12px]"
+          style={{ background: 'rgba(26,29,39,0.8)' }}
+        >
+          <p className="text-sm font-semibold text-white mb-4">Revenus — 8 dernières semaines</p>
+          {isLoading ? (
+            <div className="h-20 bg-[#2A2D3A] rounded animate-pulse" />
+          ) : analytics ? (
+            <RevenueBarChart data={analytics.weeklyRevenue} />
+          ) : null}
         </div>
 
         {/* ── Recent Activity + Recent Clients ──────────────────────────── */}

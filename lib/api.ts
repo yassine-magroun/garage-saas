@@ -19,6 +19,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   DashboardStats,
+  AnalyticsStats,
   StatusHistory,
   Prestation,
 } from './types';
@@ -717,6 +718,82 @@ export async function getDashboardStats(garageId: string): Promise<DashboardStat
     pendingInvoicesAmount,
     activeInterventionsCount: activeResult.count ?? 0,
     activeDevisCount: devisResult.count ?? 0,
+  };
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export async function getAnalyticsStats(garageId: string): Promise<AnalyticsStats> {
+  const now = new Date();
+  const ms56d = 56 * 24 * 60 * 60 * 1000;
+  const ms30d = 30 * 24 * 60 * 60 * 1000;
+  const since56d = new Date(now.getTime() - ms56d).toISOString();
+  const since30d = new Date(now.getTime() - ms30d).toISOString();
+
+  const [paidResult, devisResult] = await Promise.all([
+    supabase
+      .from('factures')
+      .select('id, total_ttc, client_id, created_at, updated_at, clients(name)')
+      .eq('garage_id', garageId)
+      .eq('status', 'paid')
+      .gte('created_at', since56d),
+    supabase
+      .from('devis')
+      .select('status')
+      .eq('garage_id', garageId),
+  ]);
+
+  const paidRows = (paidResult.data ?? []) as Array<Record<string, unknown>>;
+  const devisRows = (devisResult.data ?? []) as Array<Record<string, unknown>>;
+
+  // ── Top client (last 30 days) ─────────────────────────────────────────────
+  const clientMap: Record<string, { name: string; total: number }> = {};
+  for (const r of paidRows) {
+    if ((r.created_at as string) < since30d) continue;
+    const cid = String(r.client_id);
+    const name = (r.clients as { name: string } | null)?.name ?? 'Inconnu';
+    if (!clientMap[cid]) clientMap[cid] = { name, total: 0 };
+    clientMap[cid].total += Number(r.total_ttc);
+  }
+  const top = Object.values(clientMap).sort((a, b) => b.total - a.total)[0] ?? null;
+
+  // ── Devis → facture conversion rate ──────────────────────────────────────
+  const totalDevis = devisRows.length;
+  const acceptedDevis = devisRows.filter((r) => r.status === 'accepted').length;
+  const conversionRate = totalDevis > 0 ? Math.round((acceptedDevis / totalDevis) * 100) : 0;
+
+  // ── Avg payment delay (days from created_at to updated_at on paid factures)
+  let avgPaymentDelayDays = 0;
+  if (paidRows.length > 0) {
+    const totalDays = paidRows.reduce((sum, r) => {
+      const created = new Date(r.created_at as string).getTime();
+      const paid = new Date(r.updated_at as string).getTime();
+      return sum + Math.max(0, (paid - created) / (1000 * 60 * 60 * 24));
+    }, 0);
+    avgPaymentDelayDays = Math.round((totalDays / paidRows.length) * 10) / 10;
+  }
+
+  // ── 8-week revenue bar chart ──────────────────────────────────────────────
+  const weeklyRevenue = Array.from({ length: 8 }, (_, i) => {
+    const w = 7 - i; // w=7 is oldest, w=0 is current
+    const weekStart = new Date(now.getTime() - (w + 1) * 7 * 24 * 60 * 60 * 1000);
+    const weekEnd   = new Date(now.getTime() -  w      * 7 * 24 * 60 * 60 * 1000);
+    const ca = paidRows
+      .filter((r) => {
+        const d = new Date(r.created_at as string).getTime();
+        return d >= weekStart.getTime() && d < weekEnd.getTime();
+      })
+      .reduce((sum, r) => sum + Number(r.total_ttc), 0);
+    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+    return { weekLabel: label, ca };
+  });
+
+  return {
+    topClientName: top?.name ?? null,
+    topClientRevenue: top?.total ?? 0,
+    conversionRate,
+    avgPaymentDelayDays,
+    weeklyRevenue,
   };
 }
 
