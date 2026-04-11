@@ -59,7 +59,7 @@ create table if not exists interventions (
   client_id uuid not null references clients(id) on delete cascade,
   vehicle_id text,
   type text not null,
-  status text not null check (status in ('Planifié','En cours','Terminé')) default 'En cours',
+  status text not null check (status in ('Planifié','En cours','Terminé','En attente','Prêt','Livré')) default 'En attente',
   date date not null,
   price numeric(12,2) not null default 0,
   description text,
@@ -192,6 +192,10 @@ alter table prestations disable row level security;
 alter table devis    add column if not exists display_ref text;
 alter table factures add column if not exists display_ref text;
 alter table garages  add column if not exists clerk_user_id text unique;
+alter table garages  add column if not exists logo_url text;
+
+-- Supabase Storage bucket for garage logos (run once)
+-- insert into storage.buckets (id, name, public) values ('garage-logos', 'garage-logos', true) on conflict do nothing;
 
 -- 13. INDEXES
 create index if not exists idx_clients_garage_id        on clients(garage_id);

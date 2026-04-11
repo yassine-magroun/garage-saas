@@ -5,6 +5,7 @@ import {
   Text,
   View,
   StyleSheet,
+  Image,
 } from '@react-pdf/renderer';
 import type { Facture, FactureItem } from '../../lib/types';
 
@@ -247,6 +248,7 @@ interface InvoicePDFProps {
   garageEmail?: string;
   garageSiret?: string;
   garageTva?: string;
+  garageLogoUrl?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -259,6 +261,7 @@ export function InvoicePDF({
   garageEmail = 'contact@mecanigo.fr',
   garageSiret = 'SIRET : 123 456 789 00010',
   garageTva = 'TVA intracommunautaire : FR12 123456789',
+  garageLogoUrl,
 }: InvoicePDFProps) {
   const invoiceNum = padId(facture.id, facture.displayRef);
   const tvaAmount = facture.totalHt * (facture.tvaRate / 100);
@@ -285,7 +288,12 @@ export function InvoicePDF({
         {/* ── Header ── */}
         <View style={s.headerRow}>
           <View>
-            <Text style={s.brandName}>{garageName}</Text>
+            {garageLogoUrl ? (
+              <Image src={garageLogoUrl} style={{ width: 60, height: 60, objectFit: 'contain', marginBottom: 6 }} />
+            ) : (
+              <Text style={s.brandName}>{garageName}</Text>
+            )}
+            {garageLogoUrl && <Text style={s.brandName}>{garageName}</Text>}
             <Text style={s.brandTagline}>La gestion garage, enfin simple.</Text>
             <Text style={s.garageInfo}>
               {garageAddress}{'\n'}

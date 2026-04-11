@@ -3,99 +3,146 @@
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
-import { Plus, CheckCircle, Eye } from 'lucide-react';
+import { Plus, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { interventionsAPI, clientsAPI } from '../../lib/api';
+import { getGarageId } from '../../lib/garage';
+import type { Intervention, Client } from '../../lib/types';
 
-const initialInterventions = [
-  { id: 'int1', clientId: '2', vehicle: 'Yamaha XMAX 300', type: 'Révision complète', status: 'En cours', date: '25/03/2026', price: 120 },
-  { id: 'int2', clientId: '3', vehicle: 'Piaggio Liberty 125', type: 'Vidange & freinage', status: 'Terminé', date: '23/03/2026', price: 85 },
-  { id: 'int3', clientId: '1', vehicle: 'TMAX 125', type: 'Réparation embrayage', status: 'En cours', date: '26/03/2026', price: 230 },
-  { id: 'int4', clientId: '4', vehicle: 'Honda PCX 125', type: 'Batterie & électrique', status: 'Terminé', date: '22/03/2026', price: 65 },
-  { id: 'int5', clientId: '5', vehicle: 'Kymco Agility 125', type: 'Réparation freins', status: 'En cours', date: '24/03/2026', price: 95 },
-  { id: 'int6', clientId: '6', vehicle: 'Peugeot Tweet 125', type: 'Changement pneus', status: 'Planifié', date: '27/03/2026', price: 150 },
-  { id: 'int7', clientId: '7', vehicle: 'Sym Symphony 125', type: 'Révision distribution', status: 'En cours', date: '26/03/2026', price: 180 },
-  { id: 'int8', clientId: '8', vehicle: 'Honda Forza 300', type: 'Contrôle technique', status: 'Terminé', date: '20/03/2026', price: 45 },
-];
+// ─── Status config ─────────────────────────────────────────────────────────────
 
-const statusStyles: Record<string, string> = {
-  'En cours': 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
-  Terminé: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-  Planifié: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+type IntStatus = 'En attente' | 'En cours' | 'Prêt' | 'Livré';
+
+const STATUS_ORDER: IntStatus[] = ['En attente', 'En cours', 'Prêt', 'Livré'];
+
+const STATUS_STYLE: Record<IntStatus, string> = {
+  'En attente': 'bg-slate-500/10 text-slate-400 border border-slate-500/20',
+  'En cours':   'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+  'Prêt':       'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+  'Livré':      'bg-blue-500/10 text-blue-400 border border-blue-500/20',
 };
 
-const statusDot: Record<string, string> = {
-  'En cours': 'bg-amber-500',
-  Terminé: 'bg-emerald-500',
-  Planifié: 'bg-blue-500',
+const STATUS_DOT: Record<IntStatus, string> = {
+  'En attente': 'bg-slate-400',
+  'En cours':   'bg-amber-500',
+  'Prêt':       'bg-emerald-500',
+  'Livré':      'bg-blue-500',
 };
+
+function nextStatus(current: string): IntStatus | null {
+  const idx = STATUS_ORDER.indexOf(current as IntStatus);
+  if (idx < 0 || idx >= STATUS_ORDER.length - 1) return null;
+  return STATUS_ORDER[idx + 1];
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function InterventionsPage() {
   const searchParams = useSearchParams();
-  const [interventions, setInterventions] = useState(initialInterventions);
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-  const [selectedIntervention, setSelectedIntervention] = useState<typeof initialInterventions[0] | null>(null);
+  const [garageId, setGarageId] = useState('');
+  const [interventions, setInterventions] = useState<Intervention[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isNewInterventionOpen, setIsNewInterventionOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [interventionForm, setInterventionForm] = useState({ client: '', vehicle: '', type: '', price: '', date: '' });
+  const [filter, setFilter] = useState<string>('Tous');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find((c) => c.id === clientId);
-    return client ? client.name : 'Client inconnu';
+  const [interventionForm, setInterventionForm] = useState({
+    clientId: '', vehicle: '', type: '', price: '', date: new Date().toISOString().slice(0, 10),
+  });
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
   };
 
+  const getClientName = (clientId: string) => clients.find((c) => c.id === clientId)?.name ?? 'Client inconnu';
+  const getClientEmail = (clientId: string) => clients.find((c) => c.id === clientId)?.email ?? '';
+
+  // Load from Supabase
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('interventions');
-    if (stored) {
-      try { setInterventions(JSON.parse(stored)); } catch { }
-    }
-    const savedClients = localStorage.getItem('clients');
-    if (savedClients) {
-      try { setClients(JSON.parse(savedClients)); } catch { }
-    }
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const gid = await getGarageId();
+        setGarageId(gid);
+        const [ints, cls] = await Promise.all([interventionsAPI.getAll(), clientsAPI.getAll()]);
+        setInterventions(ints);
+        setClients(cls);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Erreur chargement', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void load();
   }, []);
 
+  // Auto-open modal from query param
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('interventions', JSON.stringify(interventions));
-  }, [interventions]);
-
-  useEffect(() => {
-    if (searchParams.get('openModal') === 'true') {
-      setIsNewInterventionOpen(true);
-    }
+    if (searchParams.get('openModal') === 'true') setIsNewInterventionOpen(true);
   }, [searchParams]);
 
-  const markAsCompleted = (index: number) => {
-    setInterventions(interventions.map((item, i) =>
-      i === index ? { ...item, status: 'Terminé' } : item
-    ));
-    setToast({ message: 'Intervention marquée comme terminée !', type: 'success' });
-    setTimeout(() => setToast(null), 3000);
+  // Advance status by one step
+  const handleAdvanceStatus = async (intervention: Intervention) => {
+    const next = nextStatus(intervention.status);
+    if (!next) return;
+    setUpdatingId(intervention.id);
+    try {
+      const res = await fetch('/api/intervention/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          interventionId: intervention.id,
+          garageId,
+          newStatus: next,
+          clientEmail: getClientEmail(intervention.clientId),
+          clientName: getClientName(intervention.clientId),
+          vehicle: intervention.type,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        throw new Error(d.error ?? 'Erreur mise à jour');
+      }
+      setInterventions((prev) => prev.map((i) => i.id === intervention.id ? { ...i, status: next as Intervention['status'] } : i));
+      showToast(next === 'Prêt' ? '✅ Véhicule prêt — email client envoyé' : `Statut → ${next}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
-  const handleCreateIntervention = () => {
-    if (!interventionForm.client || !interventionForm.vehicle || !interventionForm.type || !interventionForm.price || !interventionForm.date) {
-      setToast({ message: 'Tous les champs sont nécessaires', type: 'error' });
-      setTimeout(() => setToast(null), 3000);
+  const handleCreateIntervention = async () => {
+    if (!interventionForm.clientId || !interventionForm.vehicle || !interventionForm.type || !interventionForm.price || !interventionForm.date) {
+      showToast('Tous les champs sont nécessaires', 'error');
       return;
     }
-    const newIntervention = {
-      id: Date.now().toString(),
-      clientId: interventionForm.client,
-      vehicle: interventionForm.vehicle,
-      type: interventionForm.type,
-      status: 'En cours',
-      date: interventionForm.date,
-      price: parseFloat(interventionForm.price),
-    };
-    setInterventions((prev) => [newIntervention, ...prev]);
-    setInterventionForm({ client: '', vehicle: '', type: '', price: '', date: '' });
-    setIsNewInterventionOpen(false);
-    setToast({ message: 'Intervention ajoutée avec succès !', type: 'success' });
-    setTimeout(() => setToast(null), 3000);
+    try {
+      const created = await interventionsAPI.create({
+        clientId: interventionForm.clientId,
+        vehicleId: interventionForm.vehicle,
+        type: interventionForm.type,
+        status: 'En attente' as Intervention['status'],
+        date: interventionForm.date,
+        price: parseFloat(interventionForm.price),
+      });
+      setInterventions((prev) => [created, ...prev]);
+      setInterventionForm({ clientId: '', vehicle: '', type: '', price: '', date: new Date().toISOString().slice(0, 10) });
+      setIsNewInterventionOpen(false);
+      showToast('Intervention créée', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur création', 'error');
+    }
   };
+
+  const FILTER_TABS = ['Tous', ...STATUS_ORDER];
+  const displayed = filter === 'Tous' ? interventions : interventions.filter((i) => i.status === filter);
+
+  const inputCls = 'w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50';
 
   return (
     <PageLayout activePage="interventions">
@@ -116,88 +163,124 @@ export default function InterventionsPage() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto">
-        {/* Filter tabs */}
-        <section className="flex gap-1 border-b border-[#2A2D3A]">
-          <button className="px-4 py-3 text-sm font-medium text-[#FF6B2B] border-b-2 border-[#FF6B2B] -mb-px">Tous</button>
-          <button className="px-4 py-3 text-sm font-medium text-[#8B8FA8] hover:text-white transition-colors">En cours</button>
-          <button className="px-4 py-3 text-sm font-medium text-[#8B8FA8] hover:text-white transition-colors">Terminées</button>
-        </section>
 
-        {/* Intervention cards */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {interventions.map((intervention, idx) => (
-            <article
-              key={`${intervention.id}-${idx}`}
-              className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5 hover:border-[#3A3D4A] transition-colors group"
-            >
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex-1">
-                  <h2 className="font-medium text-white text-sm">{getClientName(intervention.clientId)}</h2>
-                  <p className="text-xs text-[#8B8FA8] mt-0.5">{intervention.vehicle}</p>
-                  <p className="mt-2 text-xs font-medium text-[#C4C7D4]">{intervention.type}</p>
+        {/* Pipeline status summary */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {STATUS_ORDER.map((s) => {
+            const count = interventions.filter((i) => i.status === s).length;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilter(filter === s ? 'Tous' : s)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  filter === s ? 'border-[#FF6B2B] bg-[#FF6B2B]/10' : 'border-[#2A2D3A] bg-[#1A1D27] hover:border-[#3A3D4A]'
+                }`}
+              >
+                <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full mb-1 ${STATUS_STYLE[s]}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[s]}`} />
+                  {s}
                 </div>
-                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded ${statusStyles[intervention.status]}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${statusDot[intervention.status]}`} />
-                  {intervention.status}
-                </span>
-              </div>
+                <p className="text-2xl font-bold text-white">{count}</p>
+              </button>
+            );
+          })}
+        </div>
 
-              <div className="flex items-center gap-6 text-xs text-[#8B8FA8] mb-4">
-                <span>{intervention.date}</span>
-                <span className="font-semibold text-white">{intervention.price} €</span>
-              </div>
-
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                {intervention.status !== 'Terminé' && (
-                  <button
-                    onClick={() => markAsCompleted(idx)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Terminer
-                  </button>
-                )}
-                <button
-                  onClick={() => setSelectedIntervention(intervention)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF6B2B]/10 border border-[#FF6B2B]/20 text-[#FF6B2B] text-xs font-medium hover:bg-[#FF6B2B]/20 transition-colors"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Voir
-                </button>
-              </div>
-            </article>
+        {/* Filter tabs */}
+        <section className="flex gap-1 border-b border-[#2A2D3A] overflow-x-auto">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                filter === tab ? 'text-[#FF6B2B] border-[#FF6B2B]' : 'text-[#8B8FA8] border-transparent hover:text-white'
+              }`}
+            >
+              {tab}
+            </button>
           ))}
         </section>
 
-        <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-6 text-sm text-[#8B8FA8]">
-          <p className="font-semibold text-white">Résumé</p>
-          <p className="mt-2">{interventions.length} interventions affichées</p>
+        {/* Cards */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-36 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : displayed.length === 0 ? (
+          <div className="text-center py-16 text-[#8B8FA8] text-sm">
+            Aucune intervention {filter !== 'Tous' ? `"${filter}"` : ''}
+          </div>
+        ) : (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {displayed.map((intervention) => {
+              const next = nextStatus(intervention.status);
+              const isUpdating = updatingId === intervention.id;
+              const style = STATUS_STYLE[intervention.status as IntStatus] ?? STATUS_STYLE['En attente'];
+              const dot = STATUS_DOT[intervention.status as IntStatus] ?? STATUS_DOT['En attente'];
+
+              return (
+                <article
+                  key={intervention.id}
+                  className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5 hover:border-[#3A3D4A] transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-semibold text-white text-sm truncate">{getClientName(intervention.clientId)}</h2>
+                      <p className="text-xs text-[#8B8FA8] mt-0.5 truncate">{intervention.type}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded whitespace-nowrap ${style}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                      {intervention.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs text-[#8B8FA8] mb-4">
+                    <span>{new Date(intervention.date).toLocaleDateString('fr-FR')}</span>
+                    <span className="font-semibold text-white">{intervention.price} €</span>
+                  </div>
+
+                  {/* Status progress bar */}
+                  <div className="flex gap-1 mb-4">
+                    {STATUS_ORDER.map((s) => (
+                      <div
+                        key={s}
+                        className={`h-1 flex-1 rounded-full transition-all ${
+                          STATUS_ORDER.indexOf(s) <= STATUS_ORDER.indexOf(intervention.status as IntStatus)
+                            ? 'bg-[#FF6B2B]'
+                            : 'bg-[#2A2D3A]'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {next && (
+                    <button
+                      onClick={() => void handleAdvanceStatus(intervention)}
+                      disabled={isUpdating}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF6B2B]/10 border border-[#FF6B2B]/20 text-[#FF6B2B] text-xs font-medium hover:bg-[#FF6B2B]/20 transition-colors disabled:opacity-50"
+                    >
+                      {isUpdating ? 'Mise à jour...' : (
+                        <>
+                          Passer à <strong>{next}</strong>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+        )}
+
+        <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 text-sm text-[#8B8FA8]">
+          <span className="font-semibold text-white">{displayed.length}</span> intervention{displayed.length !== 1 ? 's' : ''} affichée{displayed.length !== 1 ? 's' : ''}
         </div>
       </main>
 
-      {/* Detail modal */}
-      {selectedIntervention && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-base font-semibold text-white mb-4">Détails de l&apos;intervention</h3>
-            <div className="space-y-2">
-              <p className="text-sm text-[#8B8FA8]">Client: <span className="font-medium text-white">{getClientName(selectedIntervention.clientId)}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Véhicule: <span className="font-medium text-white">{selectedIntervention.vehicle}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Type: <span className="font-medium text-white">{selectedIntervention.type}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Date: <span className="font-medium text-white">{selectedIntervention.date}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Prix: <span className="font-medium text-white">{selectedIntervention.price} €</span></p>
-              <p className="text-sm text-[#8B8FA8]">Statut: <span className="font-medium text-white">{selectedIntervention.status}</span></p>
-            </div>
-            <button
-              onClick={() => setSelectedIntervention(null)}
-              className="mt-5 w-full px-4 py-2.5 bg-[#FF6B2B] text-white rounded-lg font-medium hover:bg-[#E55A1F] transition-colors text-sm"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* New intervention modal */}
       <Modal
         isOpen={isNewInterventionOpen}
         title="Nouvelle intervention"
@@ -211,7 +294,7 @@ export default function InterventionsPage() {
               Annuler
             </button>
             <button
-              onClick={handleCreateIntervention}
+              onClick={() => void handleCreateIntervention()}
               className="px-4 py-2 rounded-lg bg-[#FF6B2B] text-white text-sm font-medium hover:bg-[#E55A1F] transition-colors"
             >
               Enregistrer
@@ -222,53 +305,27 @@ export default function InterventionsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Client</label>
-            <select
-              value={interventionForm.client}
-              onChange={(e) => setInterventionForm({ ...interventionForm, client: e.target.value })}
-              className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
-            >
+            <select value={interventionForm.clientId} onChange={(e) => setInterventionForm({ ...interventionForm, clientId: e.target.value })} className={inputCls}>
               <option value="">Sélectionner un client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>{client.name}</option>
-              ))}
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Véhicule</label>
-            <input
-              value={interventionForm.vehicle}
-              onChange={(e) => setInterventionForm({ ...interventionForm, vehicle: e.target.value })}
-              className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
-              placeholder="Modèle"
-            />
+            <input value={interventionForm.vehicle} onChange={(e) => setInterventionForm({ ...interventionForm, vehicle: e.target.value })} className={inputCls} placeholder="Ex: XMAX 300" />
           </div>
           <div>
             <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Type d&apos;intervention</label>
-            <input
-              value={interventionForm.type}
-              onChange={(e) => setInterventionForm({ ...interventionForm, type: e.target.value })}
-              className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
-              placeholder="Ex: Vidange"
-            />
+            <input value={interventionForm.type} onChange={(e) => setInterventionForm({ ...interventionForm, type: e.target.value })} className={inputCls} placeholder="Ex: Vidange" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Prix (€)</label>
-              <input
-                type="number"
-                value={interventionForm.price}
-                onChange={(e) => setInterventionForm({ ...interventionForm, price: e.target.value })}
-                className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
-              />
+              <input type="number" value={interventionForm.price} onChange={(e) => setInterventionForm({ ...interventionForm, price: e.target.value })} className={inputCls} />
             </div>
             <div>
               <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Date</label>
-              <input
-                type="date"
-                value={interventionForm.date}
-                onChange={(e) => setInterventionForm({ ...interventionForm, date: e.target.value })}
-                className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
-              />
+              <input type="date" value={interventionForm.date} onChange={(e) => setInterventionForm({ ...interventionForm, date: e.target.value })} className={inputCls} />
             </div>
           </div>
         </div>

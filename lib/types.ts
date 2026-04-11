@@ -10,6 +10,7 @@ export type GarageSettings = {
   address: string;
   email?: string;
   siret?: string;
+  logoUrl?: string;
   createdAt: string;
   updatedAt: string;
 };

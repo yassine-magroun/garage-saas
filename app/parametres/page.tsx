@@ -2,10 +2,11 @@
 
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { prestationsAPI } from '../../lib/api';
+import { Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil, Check, X, ImageIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { prestationsAPI, getGarageSettings, updateGarageLogoUrl } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
+import { supabase } from '../../lib/supabase';
 import type { Prestation } from '../../lib/types';
 
 export default function ParametresPage() {
@@ -21,6 +22,9 @@ export default function ParametresPage() {
 
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [garageId, setGarageId] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [prestForm, setPrestForm] = useState({ name: '', priceHt: '', tvaRate: '20', category: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', priceHt: '', tvaRate: '', category: '' });
@@ -46,10 +50,14 @@ export default function ParametresPage() {
       try {
         const gid = await getGarageId();
         setGarageId(gid);
-        const list = await prestationsAPI.getAll(gid);
+        const [list, garage] = await Promise.all([
+          prestationsAPI.getAll(gid).catch(() => [] as Prestation[]),
+          getGarageSettings(gid).catch(() => null),
+        ]);
         setPrestations(list);
+        if (garage?.logoUrl) setLogoUrl(garage.logoUrl);
       } catch {
-        // silently ignore if prestations table doesn't exist yet
+        // silently ignore
       }
     };
     void load();
@@ -121,6 +129,37 @@ export default function ParametresPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !garageId) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) {
+      showToast('Format accepté : PNG, JPEG, WEBP, SVG', 'error');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Logo max 2 MB', 'error');
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'png';
+      const path = `${garageId}/logo.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('garage-logos')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw new Error(uploadError.message);
+      const { data: urlData } = supabase.storage.from('garage-logos').getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      await updateGarageLogoUrl(garageId, publicUrl);
+      setLogoUrl(publicUrl);
+      showToast('Logo mis à jour', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur upload', 'error');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const inputCls = 'w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 focus:border-[#FF6B2B]/50 transition-all';
   const smallInputCls = 'border border-[#2A2D3A] rounded-lg px-2 py-1.5 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-1 focus:ring-[#FF6B2B]/50';
 
@@ -171,6 +210,38 @@ export default function ParametresPage() {
             <div>
               <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Email</label>
               <input type="email" value={settings.email} onChange={(e) => setSettings({ ...settings, email: e.target.value })} className={inputCls} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── LOGO GARAGE ── */}
+        <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-blue-500/10 rounded-lg">
+              <ImageIcon className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Logo du garage</h3>
+              <p className="text-xs text-[#8B8FA8] mt-0.5">Affiché en haut à gauche des factures PDF · PNG/JPEG/SVG · max 2 MB</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            {/* Preview */}
+            <div className="w-20 h-20 rounded-xl border border-[#2A2D3A] bg-[#0F1117] flex items-center justify-center overflow-hidden flex-shrink-0">
+              {logoUrl
+                ? <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                : <ImageIcon className="w-8 h-8 text-[#3A3D4A]" />}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => void handleLogoUpload(e)} />
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[#2A2D3A] rounded-lg text-sm text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
+              >
+                {logoUploading ? 'Upload en cours...' : 'Choisir un logo'}
+              </button>
+              {logoUrl && <p className="text-xs text-emerald-400">✓ Logo actif</p>}
             </div>
           </div>
         </div>

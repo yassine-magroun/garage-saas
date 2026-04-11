@@ -630,7 +630,7 @@ export async function getGarageByClerkUserId(clerkUserId: string): Promise<{ id:
 export async function getGarageSettings(garageId: string): Promise<import('./types').GarageSettings | null> {
   const { data, error } = await supabase
     .from('garages')
-    .select('id, name, phone, address, email, siret, created_at, updated_at')
+    .select('id, name, phone, address, email, siret, logo_url, created_at, updated_at')
     .eq('id', garageId)
     .single();
   if (error) return null;
@@ -642,9 +642,18 @@ export async function getGarageSettings(garageId: string): Promise<import('./typ
     address: String(r.address ?? ''),
     email: r.email ? String(r.email) : undefined,
     siret: r.siret ? String(r.siret) : undefined,
+    logoUrl: r.logo_url ? String(r.logo_url) : undefined,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
+}
+
+export async function updateGarageLogoUrl(garageId: string, logoUrl: string): Promise<void> {
+  const { error } = await supabase
+    .from('garages')
+    .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+    .eq('id', garageId);
+  if (error) throw new Error(error.message);
 }
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────

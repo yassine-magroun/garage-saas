@@ -38,6 +38,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         garagePhone: garage.phone,
         garageEmail: garage.email,
         garageSiret: garage.siret ? `SIRET : ${garage.siret}` : undefined,
+        garageLogoUrl: garage.logoUrl ?? undefined,
       }
     : {};
 
