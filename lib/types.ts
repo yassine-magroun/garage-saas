@@ -126,6 +126,30 @@ export interface Facture {
   displayRef?: string;
 }
 
+// ── Pièces (Stock) ────────────────────────────────────────────────────────────
+
+export interface Piece {
+  id: string;
+  garageId: string;
+  name: string;
+  reference: string | null;
+  category: string;
+  stockQuantity: number;
+  stockMin: number;
+  priceAchatHt: number;
+  priceVenteHt: number;
+  fournisseur: string | null;
+  createdAt: string;
+}
+
+export type StockStatus = 'ok' | 'alerte' | 'rupture';
+
+export function getStockStatus(piece: Piece): StockStatus {
+  if (piece.stockQuantity <= 0) return 'rupture';
+  if (piece.stockQuantity <= piece.stockMin) return 'alerte';
+  return 'ok';
+}
+
 // ── Prestations ───────────────────────────────────────────────────────────────
 
 export interface Prestation {

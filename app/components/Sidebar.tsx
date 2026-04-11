@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap, Package } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 
 type SidebarItem = {
@@ -12,7 +12,7 @@ type SidebarItem = {
 export default function Sidebar({
   activePage,
 }: {
-  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'parametres';
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'stock' | 'parametres';
   garageName?: string;
 }) {
   const items: SidebarItem[] = [
@@ -21,6 +21,7 @@ export default function Sidebar({
     { href: '/interventions', label: 'Interventions',     icon: Wrench,          active: activePage === 'interventions'  },
     { href: '/factures',      label: 'Factures',          icon: FileText,        active: activePage === 'factures'       },
     { href: '/devis',         label: 'Devis',             icon: ClipboardList,   active: activePage === 'devis'          },
+    { href: '/stock',         label: 'Stock',             icon: Package,         active: activePage === 'stock'          },
     { href: '/parametres',    label: 'Paramètres',        icon: Settings,        active: activePage === 'parametres'     },
   ];
 

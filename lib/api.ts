@@ -23,6 +23,7 @@ import type {
   StatusHistory,
   Prestation,
   TriggerLog,
+  Piece,
 } from './types';
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -1042,6 +1043,172 @@ export const prestationsAPI = {
     if (error) throw new Error(error.message);
   },
 };
+
+// ─── Pièces (Stock) ───────────────────────────────────────────────────────────
+
+function mapPiece(row: Record<string, unknown>): Piece {
+  return {
+    id: String(row.id),
+    garageId: String(row.garage_id),
+    name: String(row.name ?? ''),
+    reference: row.reference ? String(row.reference) : null,
+    category: String(row.category ?? 'Autre'),
+    stockQuantity: Number(row.stock_quantity ?? 0),
+    stockMin: Number(row.stock_min ?? 0),
+    priceAchatHt: Number(row.price_achat_ht ?? 0),
+    priceVenteHt: Number(row.price_vente_ht ?? 0),
+    fournisseur: row.fournisseur ? String(row.fournisseur) : null,
+    createdAt: String(row.created_at),
+  };
+}
+
+export const piecesStockAPI = {
+  async getAll(garageId: string): Promise<Piece[]> {
+    const { data, error } = await supabase
+      .from('pieces')
+      .select('*')
+      .eq('garage_id', garageId)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r) => mapPiece(r as Record<string, unknown>));
+  },
+
+  async create(
+    garageId: string,
+    payload: Omit<Piece, 'id' | 'garageId' | 'createdAt'>,
+  ): Promise<Piece> {
+    const { data, error } = await supabase
+      .from('pieces')
+      .insert({
+        garage_id: garageId,
+        name: payload.name,
+        reference: payload.reference ?? null,
+        category: payload.category || 'Autre',
+        stock_quantity: payload.stockQuantity,
+        stock_min: payload.stockMin,
+        price_achat_ht: payload.priceAchatHt,
+        price_vente_ht: payload.priceVenteHt,
+        fournisseur: payload.fournisseur ?? null,
+      })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPiece(data as Record<string, unknown>);
+  },
+
+  async update(
+    id: string,
+    garageId: string,
+    payload: Partial<Omit<Piece, 'id' | 'garageId' | 'createdAt'>>,
+  ): Promise<Piece> {
+    const updates: Record<string, unknown> = {};
+    if (payload.name !== undefined) updates.name = payload.name;
+    if (payload.reference !== undefined) updates.reference = payload.reference;
+    if (payload.category !== undefined) updates.category = payload.category;
+    if (payload.stockQuantity !== undefined) updates.stock_quantity = payload.stockQuantity;
+    if (payload.stockMin !== undefined) updates.stock_min = payload.stockMin;
+    if (payload.priceAchatHt !== undefined) updates.price_achat_ht = payload.priceAchatHt;
+    if (payload.priceVenteHt !== undefined) updates.price_vente_ht = payload.priceVenteHt;
+    if (payload.fournisseur !== undefined) updates.fournisseur = payload.fournisseur;
+    const { data, error } = await supabase
+      .from('pieces')
+      .update(updates)
+      .eq('id', id)
+      .eq('garage_id', garageId)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPiece(data as Record<string, unknown>);
+  },
+
+  async delete(id: string, garageId: string): Promise<void> {
+    const { error } = await supabase.from('pieces').delete().eq('id', id).eq('garage_id', garageId);
+    if (error) throw new Error(error.message);
+  },
+
+  async decrementStock(id: string, garageId: string, quantity: number): Promise<void> {
+    const { data: current, error: fetchError } = await supabase
+      .from('pieces')
+      .select('stock_quantity')
+      .eq('id', id)
+      .eq('garage_id', garageId)
+      .single();
+    if (fetchError) throw new Error(fetchError.message);
+    const newQty = Math.max(0, Number((current as Record<string, unknown>).stock_quantity) - quantity);
+    const { error } = await supabase
+      .from('pieces')
+      .update({ stock_quantity: newQty })
+      .eq('id', id)
+      .eq('garage_id', garageId);
+    if (error) throw new Error(error.message);
+  },
+};
+
+// ─── Facture directe (sans devis) ────────────────────────────────────────────
+
+export async function createFactureDirect(
+  garageId: string,
+  clientId: string,
+  items: Array<{ description: string; quantity: number; unitPriceHt: number; pieceId?: string }>,
+  options?: { tvaRate?: number; dueDate?: string; notes?: string },
+): Promise<Facture> {
+  const tvaRate = options?.tvaRate ?? 20;
+  const totalHt = items.reduce((sum, i) => sum + i.quantity * i.unitPriceHt, 0);
+  const totalTtc = totalHt * (1 + tvaRate / 100);
+  const displayRef = await nextDisplayRef('factures', garageId, 'FAC');
+
+  const { data: factureRow, error: factureError } = await supabase
+    .from('factures')
+    .insert({
+      garage_id: garageId,
+      client_id: clientId,
+      status: 'unpaid' as FactureStatus,
+      total_ht: totalHt,
+      tva_rate: tvaRate,
+      total_ttc: totalTtc,
+      amount_paid: 0,
+      due_date: options?.dueDate ?? null,
+      notes: options?.notes ?? null,
+      display_ref: displayRef,
+    })
+    .select('*')
+    .single();
+  if (factureError) throw new Error(factureError.message);
+
+  const factureId = (factureRow as Record<string, unknown>).id as string;
+
+  if (items.length > 0) {
+    await supabase.from('facture_items').insert(
+      items.map((i) => ({
+        facture_id: factureId,
+        garage_id: garageId,
+        description: i.description,
+        quantity: i.quantity,
+        unit_price_ht: i.unitPriceHt,
+      })),
+    );
+  }
+
+  // Decrement stock for pieces used
+  const pieceItems = items.filter((i) => i.pieceId);
+  for (const pi of pieceItems) {
+    await piecesStockAPI.decrementStock(pi.pieceId!, garageId, pi.quantity).catch(() => {});
+  }
+
+  await logStatusChange(garageId, 'facture', factureId, null, 'unpaid');
+
+  // Notify client (fire-and-forget)
+  if (typeof window !== 'undefined') {
+    void fetch('/api/notify/facture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ factureId, garageId }),
+    });
+  }
+
+  return getFactureWithPayments(factureId, garageId);
+}
 
 // ─── Duplication ──────────────────────────────────────────────────────────────
 

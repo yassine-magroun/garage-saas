@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Plus, Trash2, Copy } from 'lucide-react';
+import { Plus, Trash2, Copy, Package } from 'lucide-react';
 import {
   createDevis,
   getDevisList,
@@ -15,9 +15,10 @@ import {
   duplicateDevis,
   clientsAPI,
   prestationsAPI,
+  piecesStockAPI,
 } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
-import type { Devis, DevisStatus, DevisItem, Client, Prestation } from '../../lib/types';
+import type { Devis, DevisStatus, DevisItem, Client, Prestation, Piece } from '../../lib/types';
 
 interface DraftItem {
   description: string;
@@ -56,6 +57,9 @@ export default function DevisPage() {
   const [form, setForm] = useState({ clientId: '', tvaRate: '20', validUntil: '', notes: '' });
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [itemForm, setItemForm] = useState({ description: '', quantity: '1', unitPriceHt: '0' });
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [pieceSearch, setPieceSearch] = useState('');
+  const [showPiecePicker, setShowPiecePicker] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -68,14 +72,16 @@ export default function DevisPage() {
       try {
         const gid = await getGarageId();
         setGarageId(gid);
-        const [devis, cls, prests] = await Promise.all([
+        const [devis, cls, prests, pcs] = await Promise.all([
           getDevisList(gid),
           clientsAPI.getAll(),
           prestationsAPI.getAll(gid).catch(() => [] as Prestation[]),
+          piecesStockAPI.getAll(gid).catch(() => [] as Piece[]),
         ]);
         setDevisList(devis);
         setClients(cls);
         setPrestations(prests);
+        setPieces(pcs);
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Erreur chargement', 'error');
       } finally {
@@ -112,6 +118,22 @@ export default function DevisPage() {
   const removeDraftItem = (index: number) => {
     setDraftItems((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const addPieceToForm = (p: Piece) => {
+    setDraftItems((prev) => [...prev, {
+      description: p.reference ? `${p.name} (${p.reference})` : p.name,
+      quantity: 1,
+      unitPriceHt: p.priceVenteHt,
+    }]);
+    setShowPiecePicker(false);
+    setPieceSearch('');
+  };
+
+  const filteredPieces = pieces.filter((p) =>
+    !pieceSearch ||
+    p.name.toLowerCase().includes(pieceSearch.toLowerCase()) ||
+    (p.reference ?? '').toLowerCase().includes(pieceSearch.toLowerCase()),
+  );
 
   const addPrestationToForm = (p: Prestation) => {
     setDraftItems((prev) => [...prev, {
@@ -267,6 +289,56 @@ export default function DevisPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Stock piece picker */}
+              {pieces.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowPiecePicker((v) => !v)}
+                    className="flex items-center gap-2 px-4 py-2.5 border border-[#2A2D3A] rounded-xl text-sm text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors w-full"
+                  >
+                    <Package className="w-4 h-4 text-amber-400" />
+                    Ajouter depuis le stock…
+                  </button>
+                  {showPiecePicker && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl shadow-2xl overflow-hidden">
+                      <div className="p-2 border-b border-[#2A2D3A]">
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Rechercher une pièce…"
+                          value={pieceSearch}
+                          onChange={(e) => setPieceSearch(e.target.value)}
+                          className="w-full bg-[#0F1117] border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
+                        />
+                      </div>
+                      <ul className="max-h-48 overflow-y-auto">
+                        {filteredPieces.length === 0 ? (
+                          <li className="px-4 py-3 text-sm text-[#8B8FA8]">Aucune pièce trouvée</li>
+                        ) : filteredPieces.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => addPieceToForm(p)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
+                            >
+                              <div>
+                                <p className="text-sm text-white">{p.name}</p>
+                                {p.reference && <p className="text-xs text-[#8B8FA8] font-mono">{p.reference}</p>}
+                              </div>
+                              <div className="text-right ml-4">
+                                <p className="text-sm font-semibold text-[#FF6B2B]">{p.priceVenteHt.toFixed(2)} € HT</p>
+                                <p className="text-xs text-[#8B8FA8]">Stock : {p.stockQuantity}</p>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
 

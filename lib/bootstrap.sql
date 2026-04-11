@@ -197,6 +197,24 @@ alter table garages  add column if not exists logo_url text;
 -- Sprint 4: client retention tracking
 alter table clients add column if not exists last_contact_date timestamptz;
 
+-- Sprint 5: pièces / stock
+create table if not exists pieces (
+  id              uuid primary key default gen_random_uuid(),
+  garage_id       uuid not null references garages(id) on delete cascade,
+  name            text not null,
+  reference       text,
+  category        text default 'Autre',
+  stock_quantity  numeric(10,2) default 0,
+  stock_min       numeric(10,2) default 0,
+  price_achat_ht  numeric(10,2) default 0,
+  price_vente_ht  numeric(10,2) default 0,
+  fournisseur     text,
+  created_at      timestamptz not null default now()
+);
+alter table pieces disable row level security;
+create index if not exists idx_pieces_garage_id on pieces(garage_id);
+create index if not exists idx_pieces_category  on pieces(garage_id, category);
+
 -- 16b. TRIGGER LOGS — tracks all automated trigger actions
 create table if not exists trigger_logs (
   id          uuid primary key default gen_random_uuid(),

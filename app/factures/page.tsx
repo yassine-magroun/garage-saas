@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy } from 'lucide-react';
-import { getFacturesList, getFactureWithPayments, addPayment, duplicateFacture } from '../../lib/api';
+import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy, Plus, Package, Trash2 } from 'lucide-react';
+import { getFacturesList, getFactureWithPayments, addPayment, duplicateFacture, createFactureDirect, piecesStockAPI, clientsAPI } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
-import type { Facture, FactureStatus, Payment, PaymentMethod } from '../../lib/types';
+import type { Facture, FactureStatus, Payment, PaymentMethod, Piece, Client } from '../../lib/types';
 
 const STATUS_LABELS: Record<FactureStatus, string> = {
   unpaid: 'Non payée',
@@ -55,6 +55,17 @@ export default function FacturesPage() {
   const [filter, setFilter] = useState<FactureStatus | 'all'>('all');
   const [isDuplicating, setIsDuplicating] = useState(false);
 
+  // Nouvelle facture directe
+  const [clients, setClients] = useState<Client[]>([]);
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newForm, setNewForm] = useState({ clientId: '', tvaRate: '20', dueDate: '', notes: '' });
+  const [newItems, setNewItems] = useState<Array<{ description: string; quantity: number; unitPriceHt: number; pieceId?: string }>>([]);
+  const [newItemForm, setNewItemForm] = useState({ description: '', quantity: '1', unitPriceHt: '0' });
+  const [showPiecePicker, setShowPiecePicker] = useState(false);
+  const [pieceSearch, setPieceSearch] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -66,8 +77,14 @@ export default function FacturesPage() {
       try {
         const gid = await getGarageId();
         setGarageId(gid);
-        const list = await getFacturesList(gid);
+        const [list, cls, pcs] = await Promise.all([
+          getFacturesList(gid),
+          clientsAPI.getAll().catch(() => [] as Client[]),
+          piecesStockAPI.getAll(gid).catch(() => [] as Piece[]),
+        ]);
         setFactures(list);
+        setClients(cls);
+        setPieces(pcs);
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Erreur chargement factures', 'error');
       } finally {
@@ -168,6 +185,53 @@ export default function FacturesPage() {
     }
   };
 
+  const handleAddNewItem = () => {
+    const qty = Number(newItemForm.quantity);
+    const price = Number(newItemForm.unitPriceHt);
+    if (!newItemForm.description.trim() || qty <= 0) return;
+    setNewItems((prev) => [...prev, { description: newItemForm.description.trim(), quantity: qty, unitPriceHt: price }]);
+    setNewItemForm({ description: '', quantity: '1', unitPriceHt: '0' });
+  };
+
+  const addPieceToNew = (p: Piece) => {
+    setNewItems((prev) => [...prev, {
+      description: p.reference ? `${p.name} (${p.reference})` : p.name,
+      quantity: 1,
+      unitPriceHt: p.priceVenteHt,
+      pieceId: p.id,
+    }]);
+    setShowPiecePicker(false);
+    setPieceSearch('');
+  };
+
+  const filteredPieces = pieces.filter((p) =>
+    !pieceSearch ||
+    p.name.toLowerCase().includes(pieceSearch.toLowerCase()) ||
+    (p.reference ?? '').toLowerCase().includes(pieceSearch.toLowerCase()),
+  );
+
+  const handleCreateFactureDirect = async () => {
+    if (!newForm.clientId) { showToast('Sélectionnez un client', 'error'); return; }
+    if (newItems.length === 0) { showToast('Ajoutez au moins une ligne', 'error'); return; }
+    setIsCreating(true);
+    try {
+      const created = await createFactureDirect(garageId, newForm.clientId, newItems, {
+        tvaRate: Number(newForm.tvaRate) || 20,
+        dueDate: newForm.dueDate || undefined,
+        notes: newForm.notes || undefined,
+      });
+      setFactures((prev) => [created, ...prev]);
+      setNewForm({ clientId: '', tvaRate: '20', dueDate: '', notes: '' });
+      setNewItems([]);
+      setShowNewForm(false);
+      showToast(`Facture créée : ${created.displayRef ?? created.id.slice(0, 8)}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur création', 'error');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const filtered = filter === 'all' ? factures : factures.filter((f) => f.status === filter);
 
   const caTotal = factures.filter((f) => f.status === 'paid').reduce((s, f) => s + f.totalTtc, 0);
@@ -179,8 +243,15 @@ export default function FacturesPage() {
   return (
     <AuthGuard>
       <PageLayout activePage="factures">
-        <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5">
+        <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5 flex items-center justify-between">
           <h1 className="text-2xl md:text-3xl font-semibold text-white">Factures</h1>
+          <button
+            onClick={() => setShowNewForm((v) => !v)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nouvelle facture</span>
+          </button>
         </header>
 
         <main className="p-4 md:p-8 space-y-6 overflow-y-auto">
@@ -222,6 +293,120 @@ export default function FacturesPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Nouvelle facture directe ── */}
+          {showNewForm && (
+            <div className="bg-[#1A1D27] border border-[#FF6B2B]/30 rounded-xl p-5 space-y-4">
+              <h2 className="text-base font-bold text-white">Nouvelle facture directe</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <select
+                  value={newForm.clientId}
+                  onChange={(e) => setNewForm({ ...newForm, clientId: e.target.value })}
+                  className="border border-[#2A2D3A] rounded-xl px-4 py-2.5 bg-[#0F1117] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50"
+                >
+                  <option value="">Sélectionner un client</option>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <label className="text-xs text-[#8B8FA8] whitespace-nowrap">TVA %</label>
+                    <input type="number" min="0" max="100" value={newForm.tvaRate} onChange={(e) => setNewForm({ ...newForm, tvaRate: e.target.value })}
+                      className="w-20 border border-[#2A2D3A] rounded-xl px-3 py-2.5 bg-[#0F1117] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50" />
+                  </div>
+                  <input type="date" value={newForm.dueDate} onChange={(e) => setNewForm({ ...newForm, dueDate: e.target.value })}
+                    className="flex-1 border border-[#2A2D3A] rounded-xl px-3 py-2.5 bg-[#0F1117] text-[#8B8FA8] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50" />
+                </div>
+              </div>
+
+              {/* Stock picker */}
+              {pieces.length > 0 && (
+                <div className="relative">
+                  <button type="button" onClick={() => setShowPiecePicker((v) => !v)}
+                    className="flex items-center gap-2 px-4 py-2.5 border border-[#2A2D3A] rounded-xl text-sm text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors">
+                    <Package className="w-4 h-4 text-amber-400" />Ajouter depuis le stock…
+                  </button>
+                  {showPiecePicker && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl shadow-2xl overflow-hidden">
+                      <div className="p-2 border-b border-[#2A2D3A]">
+                        <input autoFocus type="text" placeholder="Rechercher…" value={pieceSearch} onChange={(e) => setPieceSearch(e.target.value)}
+                          className="w-full bg-[#0F1117] border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm text-white placeholder-[#8B8FA8] focus:outline-none" />
+                      </div>
+                      <ul className="max-h-40 overflow-y-auto">
+                        {filteredPieces.length === 0 ? (
+                          <li className="px-4 py-3 text-sm text-[#8B8FA8]">Aucune pièce</li>
+                        ) : filteredPieces.map((p) => (
+                          <li key={p.id}>
+                            <button type="button" onClick={() => addPieceToNew(p)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/5">
+                              <div>
+                                <p className="text-sm text-white">{p.name}</p>
+                                {p.reference && <p className="text-xs text-[#8B8FA8] font-mono">{p.reference}</p>}
+                              </div>
+                              <div className="text-right ml-4">
+                                <p className="text-sm font-semibold text-[#FF6B2B]">{p.priceVenteHt.toFixed(2)} €</p>
+                                <p className="text-xs text-[#8B8FA8]">Stock : {p.stockQuantity}</p>
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Manual line */}
+              <div className="border border-[#2A2D3A] rounded-xl p-3 bg-[#0F1117] space-y-2">
+                <p className="text-xs text-[#8B8FA8]">Ligne manuelle</p>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Description" value={newItemForm.description} onChange={(e) => setNewItemForm({ ...newItemForm, description: e.target.value })}
+                    className="flex-1 border border-[#2A2D3A] rounded-lg px-3 py-2 bg-[#1A1D27] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50" />
+                  <input type="number" min="1" value={newItemForm.quantity} onChange={(e) => setNewItemForm({ ...newItemForm, quantity: e.target.value })}
+                    className="w-16 border border-[#2A2D3A] rounded-lg px-2 py-2 bg-[#1A1D27] text-white text-sm focus:outline-none" placeholder="Qté" />
+                  <input type="number" min="0" step="0.01" value={newItemForm.unitPriceHt} onChange={(e) => setNewItemForm({ ...newItemForm, unitPriceHt: e.target.value })}
+                    className="w-24 border border-[#2A2D3A] rounded-lg px-2 py-2 bg-[#1A1D27] text-white text-sm focus:outline-none" placeholder="PU HT" />
+                  <button type="button" onClick={handleAddNewItem}
+                    className="px-3 py-2 bg-[#FF6B2B]/20 text-[#FF6B2B] rounded-lg text-sm hover:bg-[#FF6B2B]/30 transition-colors">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Items list */}
+              {newItems.length > 0 && (
+                <div className="space-y-1.5">
+                  {newItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm bg-[#0F1117] rounded-lg px-3 py-2">
+                      <span className="text-white flex-1 truncate">{item.description}</span>
+                      <span className="text-[#8B8FA8] mx-3 whitespace-nowrap">{item.quantity} × {item.unitPriceHt.toFixed(2)} €</span>
+                      <button onClick={() => setNewItems((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-[#8B8FA8] hover:text-red-400 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="text-right text-sm font-semibold text-[#FF6B2B] pr-1">
+                    Total TTC : {(newItems.reduce((s, i) => s + i.quantity * i.unitPriceHt, 0) * (1 + (Number(newForm.tvaRate) || 20) / 100)).toFixed(2)} €
+                  </div>
+                </div>
+              )}
+
+              <textarea placeholder="Notes (optionnel)" value={newForm.notes} onChange={(e) => setNewForm({ ...newForm, notes: e.target.value })}
+                rows={2}
+                className="w-full border border-[#2A2D3A] rounded-xl px-4 py-2.5 bg-[#0F1117] text-white placeholder-[#8B8FA8] text-sm focus:outline-none resize-none" />
+
+              <div className="flex gap-3">
+                <button onClick={() => { setShowNewForm(false); setNewItems([]); }}
+                  className="flex-1 px-4 py-2.5 border border-[#2A2D3A] rounded-xl text-sm text-[#8B8FA8] hover:bg-white/5 transition-colors">
+                  Annuler
+                </button>
+                <button onClick={() => void handleCreateFactureDirect()} disabled={isCreating}
+                  className="flex-1 px-4 py-2.5 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors">
+                  {isCreating ? 'Création…' : 'Créer la facture'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Filter tabs */}
           <div className="flex gap-1 border-b border-[#2A2D3A]">

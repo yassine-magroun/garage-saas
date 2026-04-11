@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import PageLayout from './components/PageLayout';
 import {
@@ -151,13 +153,23 @@ function RevenueBarChart({ data }: { data: AnalyticsStats['weeklyRevenue'] }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const router = useRouter();
+  const { isLoaded, isSignedIn } = useUser();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsStats | null>(null);
   const [triggerLogs, setTriggerLogs] = useState<TriggerLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Redirect unauthenticated users to landing page
   useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.replace('/landing');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
     const load = async () => {
       try {
         const garageId = await getGarageId();
@@ -176,9 +188,14 @@ export default function HomePage() {
       }
     };
     void load();
-  }, []);
+  }, [isSignedIn]);
 
   const evolution = stats ? calcEvolution(stats.caThisMonth, stats.caLastMonth) : null;
+
+  // Show nothing while Clerk loads or redirecting to landing
+  if (!isLoaded || !isSignedIn) {
+    return <div className="min-h-screen bg-[#0F1117]" />;
+  }
 
   return (
     <PageLayout activePage="dashboard">
