@@ -154,6 +154,40 @@ textarea,
   animation: mg-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* ─── Light Mode — hardcoded dark class overrides ───────────────────────────
+   All components use hardcoded Tailwind hex classes. These rules remap them
+   to the CSS variable palette when the .light class is on <html>.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.light .bg-\[\#0F1117\]      { background-color: var(--mg-bg) !important; }
+.light .bg-\[\#1A1D27\]      { background-color: var(--mg-surface) !important; }
+.light .bg-\[\#22263A\]      { background-color: var(--mg-surface-raised) !important; }
+.light .bg-\[\#2A2D3A\]      { background-color: var(--mg-border) !important; }
+
+.light .border-\[\#2A2D3A\]  { border-color: var(--mg-border) !important; }
+.light .border-\[\#3A3D4A\]  { border-color: var(--mg-border) !important; }
+
+.light .text-white           { color: var(--mg-text) !important; }
+.light .text-\[\#8B8FA8\]    { color: var(--mg-text-secondary) !important; }
+.light .text-\[\#C8CBDA\]    { color: var(--mg-text-secondary) !important; }
+.light .text-\[\#3A3D4A\]    { color: var(--mg-text-disabled) !important; }
+
+/* Inputs — override bg + border + text */
+.light input:not([type="checkbox"]):not([type="radio"]),
+.light select,
+.light textarea {
+  background-color: var(--mg-surface-raised) !important;
+  border-color: var(--mg-border) !important;
+  color: var(--mg-text) !important;
+}
+
+/* Sidebar stays themed via CSS vars — sidebar bg class */
+.light .bg-\[\#1A1D27\].border-r { border-color: var(--mg-border) !important; }
+
+/* Hover backgrounds */
+.light .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+
 /* ─── Selection ──────────────────────────────────────────────────────────── */
 
 ::selection {

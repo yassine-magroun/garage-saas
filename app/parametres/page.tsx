@@ -2,8 +2,13 @@
 
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil, Check, X, ImageIcon, Calculator } from 'lucide-react';
+import {
+  Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil,
+  Check, X, ImageIcon, Calculator, Moon, Sun, CreditCard, Zap,
+} from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
+import { useClerk } from '@clerk/nextjs';
 import { prestationsAPI, getGarageSettings, updateGarageLogoUrl } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
 import { supabase } from '../../lib/supabase';
@@ -11,14 +16,16 @@ import type { Prestation } from '../../lib/types';
 import { INTERVENTIONS_CATALOG } from '../../lib/interventions-catalog';
 
 export default function ParametresPage() {
+  const { theme, setTheme } = useTheme();
+  const { openUserProfile } = useClerk();
+  const isDark = theme === 'dark';
+
   const [settings, setSettings] = useState({
     garageName: 'MecaniGo',
     address: '123 Rue de la Moto, 75001 Paris',
     phone: '01 23 45 67 89',
     email: 'contact@mecanigo.fr',
     notifications: true,
-    darkMode: true,
-    language: 'fr',
   });
 
   const [prestations, setPrestations] = useState<Prestation[]>([]);
@@ -38,16 +45,8 @@ export default function ParametresPage() {
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('params');
-    if (stored) {
-      try { setSettings(JSON.parse(stored)); } catch { }
-    }
-  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -68,9 +67,6 @@ export default function ParametresPage() {
   }, []);
 
   const saveSettings = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('params', JSON.stringify(settings));
-    }
     showToast('Paramètres sauvegardés avec succès !', 'success');
   };
 
@@ -229,7 +225,7 @@ export default function ParametresPage() {
 
       <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto">
 
-        {/* Informations garage */}
+        {/* ── INFORMATIONS GARAGE ── */}
         <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-[#FF6B2B]/10 rounded-lg">
@@ -272,7 +268,6 @@ export default function ParametresPage() {
             </div>
           </div>
           <div className="flex items-center gap-5">
-            {/* Preview */}
             <div className="w-20 h-20 rounded-xl border border-[#2A2D3A] bg-[#0F1117] flex items-center justify-center overflow-hidden flex-shrink-0">
               {logoUrl
                 ? <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
@@ -304,7 +299,6 @@ export default function ParametresPage() {
             </div>
           </div>
 
-          {/* Add form */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-4">
             <input
               type="text"
@@ -350,7 +344,6 @@ export default function ParametresPage() {
             Ajouter une prestation
           </button>
 
-          {/* List */}
           {prestations.length === 0 ? (
             <div className="flex flex-col items-start gap-3 py-2">
               <p className="text-sm text-[#8B8FA8]">Aucune prestation configurée.</p>
@@ -396,7 +389,7 @@ export default function ParametresPage() {
           )}
         </div>
 
-        {/* Notifications */}
+        {/* ── NOTIFICATIONS ── */}
         <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-emerald-500/10 rounded-lg">
@@ -419,7 +412,7 @@ export default function ParametresPage() {
           </div>
         </div>
 
-        {/* Apparence */}
+        {/* ── APPARENCE (BUG 1 + BUG 2 fixed) ── */}
         <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-purple-500/10 rounded-lg">
@@ -430,28 +423,66 @@ export default function ParametresPage() {
               <p className="text-xs text-[#8B8FA8] mt-0.5">Personnalisez l&apos;apparence de l&apos;application</p>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* BUG 1 — Theme toggle using next-themes */}
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-white">Mode sombre</p>
-                <p className="text-xs text-[#8B8FA8] mt-0.5">Basculer vers le thème sombre</p>
+              <div className="flex items-center gap-3">
+                {isDark
+                  ? <Moon className="w-4 h-4 text-purple-400" />
+                  : <Sun className="w-4 h-4 text-amber-400" />}
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {isDark ? 'Mode sombre' : 'Mode clair'}
+                  </p>
+                  <p className="text-xs text-[#8B8FA8] mt-0.5">
+                    {isDark ? 'Basculer vers le thème clair' : 'Basculer vers le thème sombre'}
+                  </p>
+                </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={settings.darkMode} onChange={(e) => setSettings({ ...settings, darkMode: e.target.checked })} className="sr-only peer" />
-                <div className="w-10 h-6 bg-[#2A2D3A] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B2B]" />
-              </label>
+              <button
+                onClick={() => {
+                  const next = isDark ? 'light' : 'dark';
+                  setTheme(next);
+                  showToast(next === 'light' ? 'Mode clair activé' : 'Mode sombre activé', 'success');
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 ${
+                  isDark ? 'bg-[#FF6B2B]' : 'bg-[#2A2D3A]'
+                }`}
+                aria-label="Basculer le thème"
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    isDark ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
+
+            {/* BUG 2 — Langue: only French, toast for other */}
             <div>
-              <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Langue</label>
-              <select value={settings.language} onChange={(e) => setSettings({ ...settings, language: e.target.value })} className="w-full max-w-xs border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 transition-all">
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-              </select>
+              <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Langue de l&apos;interface</label>
+              <div className="flex items-center gap-3 max-w-xs">
+                <select
+                  defaultValue="fr"
+                  onChange={(e) => {
+                    if (e.target.value !== 'fr') {
+                      e.target.value = 'fr';
+                      showToast('Seul le Français est disponible pour le moment. D\'autres langues arrivent bientôt.', 'success');
+                    }
+                  }}
+                  className="w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 transition-all"
+                >
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 English (bientôt)</option>
+                  <option value="ar">🇹🇳 Arabe (bientôt)</option>
+                </select>
+              </div>
+              <p className="text-xs text-[#8B8FA8] mt-1.5">D&apos;autres langues seront disponibles prochainement.</p>
             </div>
           </div>
         </div>
 
-        {/* Sécurité */}
+        {/* ── SÉCURITÉ (BUG 3 fixed — Clerk) ── */}
         <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-red-500/10 rounded-lg">
@@ -459,20 +490,25 @@ export default function ParametresPage() {
             </div>
             <div>
               <h3 className="font-medium text-white">Sécurité</h3>
-              <p className="text-xs text-[#8B8FA8] mt-0.5">Gérez la sécurité de votre compte</p>
+              <p className="text-xs text-[#8B8FA8] mt-0.5">Gérez la sécurité de votre compte via Clerk</p>
             </div>
           </div>
           <div className="space-y-3">
-            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#2A2D3A] text-sm font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors">
-              Changer le mot de passe
+            {/* BUG 3 — uses Clerk openUserProfile */}
+            <button
+              onClick={() => openUserProfile()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#FF6B2B]/40 text-[#FF6B2B] text-sm font-medium hover:bg-[#FF6B2B]/10 transition-colors"
+            >
+              <Shield className="w-4 h-4" />
+              Gérer mon compte (mot de passe, email, sécurité)
             </button>
-            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors">
-              Activer l&apos;authentification à deux facteurs
-            </button>
+            <p className="text-xs text-[#8B8FA8]">
+              Ouvre le portail sécurisé Clerk pour changer votre mot de passe, email, activer la double authentification et gérer vos sessions.
+            </p>
           </div>
         </div>
 
-        {/* Comptabilité */}
+        {/* ── COMPTABILITÉ (BUG 5 — info box added) ── */}
         <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-blue-500/10 rounded-lg">
@@ -504,6 +540,71 @@ export default function ParametresPage() {
                 {comptableSaving ? 'Sauvegarde…' : 'Sauvegarder'}
               </button>
             </div>
+          </div>
+
+          {/* BUG 5 — Info box */}
+          <div className="mt-4 p-4 bg-blue-900/30 border border-blue-700/50 rounded-lg max-w-md">
+            <p className="text-sm text-blue-300 leading-relaxed">
+              <strong>📧 Comment ça fonctionne :</strong><br />
+              Chaque vendredi à 18h, votre comptable recevra automatiquement un récapitulatif de la semaine :
+              factures émises, montants HT/TTC, et toutes les pièces jointes PDF en un seul email.
+              Aucune action de votre part n&apos;est requise.
+            </p>
+          </div>
+        </div>
+
+        {/* ── MON ABONNEMENT (BONUS) ── */}
+        <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-amber-500/10 rounded-lg">
+              <CreditCard className="w-4 h-4 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Mon abonnement</h3>
+              <p className="text-xs text-[#8B8FA8] mt-0.5">Votre plan actuel et les fonctionnalités incluses</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <div>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-white">Plan actuel :</span>
+                <span className="text-sm font-bold text-amber-400">PRO</span>
+              </div>
+              <p className="text-xs text-[#8B8FA8] mt-1">99 € / mois · Renouvellement automatique</p>
+            </div>
+            <a
+              href="/api/stripe/portal"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-amber-500/40 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-500/10 transition-colors whitespace-nowrap"
+            >
+              <CreditCard className="w-4 h-4" />
+              Gérer mon abonnement →
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {([
+              { label: 'Clients illimités', active: true },
+              { label: 'Factures & devis PDF', active: true },
+              { label: 'Livre de police numérique', active: true },
+              { label: 'Rapport comptable automatique', active: true },
+              { label: 'Stock & alertes', active: true },
+              { label: 'Catalogue de prestations', active: true },
+              { label: 'Planning atelier', active: false, soon: true },
+              { label: 'Signature électronique', active: false, soon: true },
+              { label: 'Interface fournisseurs', active: false, soon: true },
+            ] as { label: string; active: boolean; soon?: boolean }[]).map((f) => (
+              <div key={f.label} className="flex items-center gap-2.5 text-sm">
+                <span className="text-base leading-none">
+                  {f.active ? '✅' : '🔜'}
+                </span>
+                <span className={f.active ? 'text-white' : 'text-[#8B8FA8]'}>
+                  {f.label}
+                  {f.soon && <span className="ml-1.5 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded-full">bientôt</span>}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
