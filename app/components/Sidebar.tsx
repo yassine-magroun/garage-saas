@@ -50,7 +50,6 @@ export default function Sidebar({
       .then(({ garageId: gid }) => {
         if (gid) {
           garageIdRef.current = gid;
-          console.log('[Search] garageId resolved:', gid);
         }
         setGarageIdReady(true);
       })
@@ -89,7 +88,6 @@ export default function Sidebar({
   // runSearch reads garageId from ref — no stale-closure problem in debounce
   const runSearch = useCallback(async (q: string) => {
     const gid = garageIdRef.current;
-    console.log('[Search] runSearch called — garageId:', gid, 'query:', q);
     if (!gid || q.length < 2) { setResults([]); setIsSearching(false); return; }
     setIsSearching(true);
     try {
@@ -99,7 +97,6 @@ export default function Sidebar({
         .eq('garage_id', gid)
         .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
         .limit(5);
-      console.log('[Search] results:', data, 'error:', error);
       setResults((data ?? []) as ClientResult[]);
     } finally {
       setIsSearching(false);

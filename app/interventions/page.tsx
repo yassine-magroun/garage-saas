@@ -5,6 +5,7 @@ import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { Plus, ChevronRight } from 'lucide-react';
+import InterventionSelect from '../components/InterventionSelect';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { interventionsAPI, clientsAPI } from '../../lib/api';
@@ -317,7 +318,17 @@ function InterventionsContent() {
           </div>
           <div>
             <label className="block text-sm font-medium text-[#8B8FA8] mb-1">Type d&apos;intervention</label>
-            <input value={interventionForm.type} onChange={(e) => setInterventionForm({ ...interventionForm, type: e.target.value })} className={inputCls} placeholder="Ex: Vidange" />
+            <InterventionSelect
+              value={interventionForm.type}
+              onChange={(label, prixDefaut) => {
+                setInterventionForm((prev) => ({
+                  ...prev,
+                  type: label,
+                  ...(prixDefaut && prixDefaut > 0 && !prev.price ? { price: String(prixDefaut) } : {}),
+                }));
+              }}
+              inputClassName={inputCls}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -8,6 +8,7 @@ import { prestationsAPI, getGarageSettings, updateGarageLogoUrl } from '../../li
 import { getGarageId } from '../../lib/garage';
 import { supabase } from '../../lib/supabase';
 import type { Prestation } from '../../lib/types';
+import { INTERVENTIONS_CATALOG } from '../../lib/interventions-catalog';
 
 export default function ParametresPage() {
   const [settings, setSettings] = useState({
@@ -31,6 +32,7 @@ export default function ParametresPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', priceHt: '', tvaRate: '', category: '' });
   const [prestLoading, setPrestLoading] = useState(false);
+  const [catalogSeeding, setCatalogSeeding] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -89,6 +91,28 @@ export default function ParametresPage() {
       showToast(err instanceof Error ? err.message : 'Erreur', 'error');
     } finally {
       setComptableSaving(false);
+    }
+  };
+
+  const handleSeedCatalog = async () => {
+    setCatalogSeeding(true);
+    try {
+      const created = await Promise.all(
+        INTERVENTIONS_CATALOG.map((item) =>
+          prestationsAPI.create(garageId, {
+            name: item.label,
+            priceHt: item.prix_defaut,
+            tvaRate: 20,
+            category: item.categorie,
+          }),
+        ),
+      );
+      setPrestations(created);
+      showToast(`${created.length} prestations importées depuis le catalogue standard`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur import catalogue', 'error');
+    } finally {
+      setCatalogSeeding(false);
     }
   };
 
@@ -328,7 +352,17 @@ export default function ParametresPage() {
 
           {/* List */}
           {prestations.length === 0 ? (
-            <p className="text-sm text-[#8B8FA8]">Aucune prestation configurée.</p>
+            <div className="flex flex-col items-start gap-3 py-2">
+              <p className="text-sm text-[#8B8FA8]">Aucune prestation configurée.</p>
+              <button
+                onClick={() => void handleSeedCatalog()}
+                disabled={catalogSeeding || !garageId}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[#FF6B2B]/40 text-[#FF6B2B] rounded-lg text-sm font-medium hover:bg-[#FF6B2B]/10 disabled:opacity-50 transition-colors"
+              >
+                <Package className="w-4 h-4" />
+                {catalogSeeding ? 'Import en cours…' : 'Initialiser avec le catalogue standard (44 prestations)'}
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
               {prestations.map((p) =>
