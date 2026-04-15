@@ -262,7 +262,10 @@ export interface LivreDePolice {
   acheteurIdentite: string | null;
   acheteurAdresse: string | null;
   modeReglementVente: string | null;
-  photos: string[];
+  photoFace: string | null;
+  photoDos: string | null;
+  photoCoteGauche: string | null;
+  photoCoteDroit: string | null;
   statut: LivreDePoliceStatut;
   createdAt: string;
   updatedAt: string;

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Plus, FileDown, Search, BookOpen } from 'lucide-react';
+import VehiclePhotoUpload from '../components/VehiclePhotoUpload';
+import { Plus, FileDown, Search, BookOpen, Camera, X } from 'lucide-react';
 import type { LivreDePolice } from '../../lib/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -24,7 +25,11 @@ function marge(entry: LivreDePolice): number | null {
   return entry.prixVente - entry.prixAchat - entry.coutReparations;
 }
 
-// ─── Empty form state ─────────────────────────────────────────────────────────
+function hasPhotos(e: LivreDePolice): boolean {
+  return !!(e.photoFace ?? e.photoDos ?? e.photoCoteGauche ?? e.photoCoteDroit);
+}
+
+// ─── Form state ───────────────────────────────────────────────────────────────
 
 type FormState = {
   marque: string; modele: string; immatriculation: string; vin: string;
@@ -35,6 +40,10 @@ type FormState = {
   date_vente: string; prix_vente: string;
   acheteur_nom: string; acheteur_identite: string; acheteur_adresse: string;
   mode_reglement_vente: string;
+  photo_face: string | null;
+  photo_dos: string | null;
+  photo_cote_gauche: string | null;
+  photo_cote_droit: string | null;
 };
 
 const EMPTY_FORM: FormState = {
@@ -46,6 +55,7 @@ const EMPTY_FORM: FormState = {
   date_vente: '', prix_vente: '',
   acheteur_nom: '', acheteur_identite: '', acheteur_adresse: '',
   mode_reglement_vente: '',
+  photo_face: null, photo_dos: null, photo_cote_gauche: null, photo_cote_droit: null,
 };
 
 const MODES_REGLEMENT = ['Espèces', 'Virement', 'Chèque', 'CB'];
@@ -61,11 +71,23 @@ function LivreDePoliceContent() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [garageId, setGarageId] = useState('');
+  // Stable ID used as storage path prefix for new entry photos
+  const [photoEntryId, setPhotoEntryId] = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Fetch garageId once on mount
+  useEffect(() => {
+    fetch('/api/garage/me')
+      .then((r) => r.json() as Promise<{ garageId: string | null }>)
+      .then(({ garageId: gid }) => { if (gid) setGarageId(gid); })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -93,12 +115,14 @@ function LivreDePoliceContent() {
   const openNew = () => {
     setEditEntry(null);
     setForm(EMPTY_FORM);
+    setPhotoEntryId(crypto.randomUUID());
     setModalOpen(true);
   };
 
   // ── Open modal to edit ──
   const openEdit = (e: LivreDePolice) => {
     setEditEntry(e);
+    setPhotoEntryId(e.id);
     setForm({
       marque: e.marque, modele: e.modele, immatriculation: e.immatriculation,
       vin: e.vin ?? '', annee: e.annee != null ? String(e.annee) : '',
@@ -112,6 +136,8 @@ function LivreDePoliceContent() {
       acheteur_nom: e.acheteurNom ?? '', acheteur_identite: e.acheteurIdentite ?? '',
       acheteur_adresse: e.acheteurAdresse ?? '',
       mode_reglement_vente: e.modeReglementVente ?? '',
+      photo_face: e.photoFace, photo_dos: e.photoDos,
+      photo_cote_gauche: e.photoCoteGauche, photo_cote_droit: e.photoCoteDroit,
     });
     setModalOpen(true);
   };
@@ -145,6 +171,10 @@ function LivreDePoliceContent() {
       acheteur_identite: form.acheteur_identite.trim() || null,
       acheteur_adresse: form.acheteur_adresse.trim() || null,
       mode_reglement_vente: form.mode_reglement_vente || null,
+      photo_face: form.photo_face,
+      photo_dos: form.photo_dos,
+      photo_cote_gauche: form.photo_cote_gauche,
+      photo_cote_droit: form.photo_cote_droit,
     };
 
     try {
@@ -183,9 +213,7 @@ function LivreDePoliceContent() {
   };
 
   // ── Export PDF (print) ──
-  const handleExport = () => {
-    window.print();
-  };
+  const handleExport = () => { window.print(); };
 
   // ── Filter ──
   const q = search.toLowerCase();
@@ -200,8 +228,15 @@ function LivreDePoliceContent() {
 
   const inp = 'w-full border border-[#2A2D3A] rounded-lg px-3 py-2 text-sm bg-[#0F1117] text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 focus:border-[#FF6B2B]/50 transition-all';
   const sel = `${inp} cursor-pointer`;
-
   const showVente = !editEntry || editEntry.statut === 'en_stock';
+
+  // Photo slots config
+  const photoSlots = [
+    { key: 'photo_face' as const,        slot: 'face',        label: 'Face avant'  },
+    { key: 'photo_dos' as const,         slot: 'dos',         label: 'Face arrière' },
+    { key: 'photo_cote_gauche' as const, slot: 'cote_gauche', label: 'Côté gauche' },
+    { key: 'photo_cote_droit' as const,  slot: 'cote_droit',  label: 'Côté droit'  },
+  ] as const;
 
   return (
     <PageLayout activePage="livre-de-police">
@@ -240,7 +275,7 @@ function LivreDePoliceContent() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 space-y-5 overflow-y-auto">
-        {/* Search bar */}
+        {/* Search */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B8FA8] pointer-events-none" />
           <input
@@ -269,7 +304,7 @@ function LivreDePoliceContent() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#2A2D3A]">
-                    {['N°', 'Date achat', 'Marque Modèle', 'Immat', 'Prix achat', 'Charges', 'Prix vente', 'Marge', 'Statut'].map((h) => (
+                    {['N°', 'Date achat', 'Marque Modèle', 'Immat', 'Prix achat', 'Charges', 'Prix vente', 'Marge', 'Photos', 'Statut'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#8B8FA8] whitespace-nowrap">
                         {h}
                       </th>
@@ -280,6 +315,7 @@ function LivreDePoliceContent() {
                 <tbody>
                   {displayed.map((e) => {
                     const m = marge(e);
+                    const photos = hasPhotos(e);
                     return (
                       <tr
                         key={e.id}
@@ -295,6 +331,12 @@ function LivreDePoliceContent() {
                         <td className="px-4 py-3 text-white tabular-nums">{fmt(e.prixVente)}</td>
                         <td className={`px-4 py-3 tabular-nums font-semibold ${m == null ? 'text-[#8B8FA8]' : m >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {m == null ? '—' : fmt(m)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Camera
+                            className={`w-4 h-4 ${photos ? 'text-emerald-400' : 'text-[#3A3D4A]'}`}
+                            title={photos ? 'Photos disponibles' : 'Aucune photo'}
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${e.statut === 'en_stock' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#2A2D3A] text-[#8B8FA8] border border-[#3A3D4A]'}`}>
@@ -324,11 +366,11 @@ function LivreDePoliceContent() {
           {' · '}
           <span className="text-emerald-400 font-semibold">{entries.filter((e) => e.statut === 'en_stock').length}</span> en stock
           {' · '}
-          <span className="text-[#8B8FA8] font-semibold">{entries.filter((e) => e.statut === 'vendu').length}</span> vendu{entries.filter((e) => e.statut === 'vendu').length !== 1 ? 's' : ''}
+          <span className="font-semibold">{entries.filter((e) => e.statut === 'vendu').length}</span> vendu{entries.filter((e) => e.statut === 'vendu').length !== 1 ? 's' : ''}
         </div>
       </main>
 
-      {/* Modal */}
+      {/* ── Entry Modal ── */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto">
           <div className="w-full max-w-3xl rounded-2xl bg-[#1A1D27] border border-[#2A2D3A] shadow-2xl my-8">
@@ -341,11 +383,12 @@ function LivreDePoliceContent() {
                 onClick={() => setModalOpen(false)}
                 className="p-1.5 rounded-lg text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 space-y-8">
+
               {/* ── SECTION ACHAT ── */}
               <section>
                 <h4 className="text-xs font-semibold text-[#FF6B2B] uppercase tracking-wider mb-4">Achat</h4>
@@ -415,6 +458,31 @@ function LivreDePoliceContent() {
                 </div>
               </section>
 
+              {/* ── SECTION PHOTOS ── */}
+              <section>
+                <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-4">
+                  État du véhicule — Photos
+                </h4>
+                {!garageId ? (
+                  <p className="text-xs text-[#8B8FA8]">Chargement…</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {photoSlots.map(({ key, slot, label }) => (
+                      <VehiclePhotoUpload
+                        key={slot}
+                        label={label}
+                        value={form[key]}
+                        onChange={(url) => setForm((prev) => ({ ...prev, [key]: url }))}
+                        garageId={garageId}
+                        vehicleId={photoEntryId}
+                        slot={slot}
+                        onLightbox={setLightbox}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {/* ── SECTION VENTE ── */}
               {showVente && (
                 <section>
@@ -449,7 +517,6 @@ function LivreDePoliceContent() {
                     </div>
                   </div>
 
-                  {/* Live marge */}
                   {liveMarge != null && (
                     <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold ${liveMarge >= 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                       Marge estimée : {liveMarge >= 0 ? '+' : ''}{liveMarge.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
@@ -476,6 +543,28 @@ function LivreDePoliceContent() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Lightbox ── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 p-2 text-white hover:text-[#8B8FA8] transition-colors z-10"
+            aria-label="Fermer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightbox}
+            alt="Photo véhicule"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
