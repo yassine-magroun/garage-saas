@@ -233,6 +233,41 @@ export type PaginatedResponse<T> = {
   hasMore: boolean;
 };
 
+// ── Livre de Police ───────────────────────────────────────────────────────────
+
+export type LivreDePoliceStatut = 'en_stock' | 'vendu';
+
+export interface LivreDePolice {
+  id: string;
+  garageId: string;
+  numeroOrdre: number;
+  marque: string;
+  modele: string;
+  immatriculation: string;
+  vin: string | null;
+  annee: number | null;
+  couleur: string | null;
+  kilometrageAchat: number | null;
+  dateAchat: string;
+  prixAchat: number;
+  vendeurNom: string | null;
+  vendeurIdentite: string | null;
+  vendeurAdresse: string | null;
+  modeReglementAchat: string;
+  coutReparations: number;
+  notesReparations: string | null;
+  dateVente: string | null;
+  prixVente: number | null;
+  acheteurNom: string | null;
+  acheteurIdentite: string | null;
+  acheteurAdresse: string | null;
+  modeReglementVente: string | null;
+  photos: string[];
+  statut: LivreDePoliceStatut;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Form data helpers ─────────────────────────────────────────────────────────
 
 export type ClientFormData = Omit<Client, 'id' | 'garageId' | 'createdAt' | 'updatedAt'>;

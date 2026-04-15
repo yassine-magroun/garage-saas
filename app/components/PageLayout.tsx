@@ -6,7 +6,7 @@ import MobileNav from './MobileNav';
 
 type PageLayoutProps = {
   children: React.ReactNode;
-  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'stock' | 'parametres';
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'stock' | 'parametres' | 'livre-de-police';
   garageName?: string;
 };
 

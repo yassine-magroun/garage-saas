@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap, Package } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, Wrench, FileText, ClipboardList, Settings, Zap, Package, BookOpen } from 'lucide-react';
 
 type NavItem = {
   href: string;
@@ -13,7 +13,7 @@ type NavItem = {
 export default function MobileNav({
   activePage,
 }: {
-  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'stock' | 'parametres';
+  activePage: 'dashboard' | 'clients' | 'interventions' | 'factures' | 'devis' | 'stock' | 'parametres' | 'livre-de-police';
   garageName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,8 +24,9 @@ export default function MobileNav({
     { href: '/interventions', label: 'Interventions',    icon: Wrench          },
     { href: '/factures',      label: 'Factures',         icon: FileText        },
     { href: '/devis',         label: 'Devis',            icon: ClipboardList   },
-    { href: '/stock',         label: 'Stock',            icon: Package         },
-    { href: '/parametres',    label: 'Paramètres',       icon: Settings        },
+    { href: '/stock',           label: 'Stock',            icon: Package         },
+    { href: '/livre-de-police', label: 'Livre de Police',  icon: BookOpen        },
+    { href: '/parametres',      label: 'Paramètres',       icon: Settings        },
   ];
 
   return (

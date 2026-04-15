@@ -2,7 +2,7 @@
 
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
-import { Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil, Check, X, ImageIcon } from 'lucide-react';
+import { Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil, Check, X, ImageIcon, Calculator } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { prestationsAPI, getGarageSettings, updateGarageLogoUrl } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
@@ -23,6 +23,8 @@ export default function ParametresPage() {
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [garageId, setGarageId] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [comptableEmail, setComptableEmail] = useState('');
+  const [comptableSaving, setComptableSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [prestForm, setPrestForm] = useState({ name: '', priceHt: '', tvaRate: '20', category: '' });
@@ -68,6 +70,26 @@ export default function ParametresPage() {
       localStorage.setItem('params', JSON.stringify(settings));
     }
     showToast('Paramètres sauvegardés avec succès !', 'success');
+  };
+
+  const saveComptableEmail = async () => {
+    setComptableSaving(true);
+    try {
+      const res = await fetch('/api/garage/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comptable_email: comptableEmail }),
+      });
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        throw new Error(d.error ?? 'Erreur serveur');
+      }
+      showToast('Email comptable sauvegardé', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setComptableSaving(false);
+    }
   };
 
   const handleAddPrestation = async () => {
@@ -413,6 +435,41 @@ export default function ParametresPage() {
             <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors">
               Activer l&apos;authentification à deux facteurs
             </button>
+          </div>
+        </div>
+
+        {/* Comptabilité */}
+        <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-blue-500/10 rounded-lg">
+              <Calculator className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Comptabilité</h3>
+              <p className="text-xs text-[#8B8FA8] mt-0.5">Envoi automatique du résumé hebdomadaire chaque vendredi à 18h</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 max-w-md">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-[#8B8FA8] mb-1.5">Email de votre comptable</label>
+              <input
+                type="email"
+                value={comptableEmail}
+                onChange={(e) => setComptableEmail(e.target.value)}
+                placeholder="comptable@cabinet.fr"
+                className={inputCls}
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => void saveComptableEmail()}
+                disabled={comptableSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF6B2B] text-white rounded-lg text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                <Save className="w-4 h-4" />
+                {comptableSaving ? 'Sauvegarde…' : 'Sauvegarder'}
+              </button>
+            </div>
           </div>
         </div>
 
