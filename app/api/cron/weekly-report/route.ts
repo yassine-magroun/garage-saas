@@ -15,7 +15,7 @@ type FactureRow = {
   created_at: string;
   total_ttc: number;
   status: string;
-  clients: { name: string } | null;
+  clients: { name: string | null }[] | null;
 };
 
 function fmtAmount(n: number): string {
@@ -42,7 +42,7 @@ function buildEmail(garageName: string, factures: FactureRow[], weekLabel: strin
       (f) => `
       <tr>
         <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:13px;color:#fff;">${f.display_ref ?? f.id.slice(0, 8).toUpperCase()}</td>
-        <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:13px;color:#fff;">${(f.clients as { name: string } | null)?.name ?? '—'}</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:13px;color:#fff;">${f.clients?.[0]?.name ?? '—'}</td>
         <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:13px;color:#8B8FA8;">${fmtDate(f.created_at)}</td>
         <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:13px;color:#fff;text-align:right;">${fmtAmount(Number(f.total_ttc))}</td>
         <td style="padding:8px 14px;border-bottom:1px solid #2A2D3A;font-size:12px;color:#8B8FA8;">${STATUS_LABELS[f.status] ?? f.status}</td>
