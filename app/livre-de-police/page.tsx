@@ -333,10 +333,9 @@ function LivreDePoliceContent() {
                           {m == null ? '—' : fmt(m)}
                         </td>
                         <td className="px-4 py-3">
-                          <Camera
-                            className={`w-4 h-4 ${photos ? 'text-emerald-400' : 'text-[#3A3D4A]'}`}
-                            title={photos ? 'Photos disponibles' : 'Aucune photo'}
-                          />
+                          <span title={photos ? 'Photos disponibles' : 'Aucune photo'}>
+                            <Camera className={`w-4 h-4 ${photos ? 'text-emerald-400' : 'text-[#3A3D4A]'}`} />
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${e.statut === 'en_stock' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#2A2D3A] text-[#8B8FA8] border border-[#3A3D4A]'}`}>
