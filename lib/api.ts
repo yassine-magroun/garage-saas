@@ -1207,7 +1207,24 @@ export async function createFactureDirect(
     });
   }
 
-  return getFactureWithPayments(factureId, garageId);
+  const newFacture = await getFactureWithPayments(factureId, garageId);
+
+  // Zapier webhook notification (fire-and-forget, server-side via API route)
+  if (typeof window !== 'undefined') {
+    void fetch('/api/factures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        factureId: newFacture.id,
+        clientName: newFacture.clientName ?? 'Client',
+        totalTtc: newFacture.totalTtc ?? 0,
+        displayRef: newFacture.displayRef ?? newFacture.id,
+        status: newFacture.status ?? 'émise',
+      }),
+    });
+  }
+
+  return newFacture;
 }
 
 // ─── Duplication ──────────────────────────────────────────────────────────────
