@@ -21,6 +21,7 @@ type ClientResult = {
   id: string;
   name: string;
   phone: string;
+  vehicle: string | null;
 };
 
 export default function Sidebar({
@@ -33,17 +34,27 @@ export default function Sidebar({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ClientResult[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [garageId, setGarageId] = useState<string | null>(null);
+  const [garageIdReady, setGarageIdReady] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  // Use a ref so debounce callbacks always read the latest garageId
+  // without needing to re-create runSearch every time garageId resolves
+  const garageIdRef = useRef<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch garageId once on mount
+  // Fetch garageId once on mount — store in both ref AND state flag
   useEffect(() => {
     fetch('/api/garage/me')
       .then((r) => r.json() as Promise<{ garageId: string | null }>)
-      .then(({ garageId: gid }) => { if (gid) setGarageId(gid); })
-      .catch(() => {});
+      .then(({ garageId: gid }) => {
+        if (gid) {
+          garageIdRef.current = gid;
+          console.log('[Search] garageId resolved:', gid);
+        }
+        setGarageIdReady(true);
+      })
+      .catch(() => { setGarageIdReady(true); });
   }, []);
 
   // Ctrl+K to focus search
@@ -75,25 +86,32 @@ export default function Sidebar({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const runSearch = useCallback(
-    async (q: string) => {
-      if (!garageId || q.length < 2) { setResults([]); return; }
-      const { data } = await supabase
+  // runSearch reads garageId from ref — no stale-closure problem in debounce
+  const runSearch = useCallback(async (q: string) => {
+    const gid = garageIdRef.current;
+    console.log('[Search] runSearch called — garageId:', gid, 'query:', q);
+    if (!gid || q.length < 2) { setResults([]); setIsSearching(false); return; }
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
         .from('clients')
-        .select('id, name, phone')
-        .eq('garage_id', garageId)
-        .ilike('name', `%${q}%`)
+        .select('id, name, phone, vehicle')
+        .eq('garage_id', gid)
+        .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
         .limit(5);
+      console.log('[Search] results:', data, 'error:', error);
       setResults((data ?? []) as ClientResult[]);
-    },
-    [garageId],
-  );
+    } finally {
+      setIsSearching(false);
+    }
+  }, []); // stable — reads garageId from ref, not closure
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
     setSearchOpen(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (val.length < 2) { setResults([]); return; }
     debounceRef.current = setTimeout(() => { void runSearch(val); }, 300);
   };
 
@@ -136,8 +154,9 @@ export default function Sidebar({
             value={query}
             onChange={handleQueryChange}
             onFocus={() => setSearchOpen(true)}
-            placeholder="Client, immatriculation…"
-            className="w-full pl-8 pr-7 py-2 text-xs bg-[#0F1117] border border-[#2A2D3A] rounded-lg text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-1 focus:ring-[#FF6B2B]/50 focus:border-[#FF6B2B]/50 transition-all"
+            placeholder={garageIdReady ? 'Client, immatriculation…' : 'Chargement…'}
+            disabled={!garageIdReady}
+            className="w-full pl-8 pr-7 py-2 text-xs bg-[#0F1117] border border-[#2A2D3A] rounded-lg text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-1 focus:ring-[#FF6B2B]/50 focus:border-[#FF6B2B]/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#8B8FA8] bg-[#2A2D3A] px-1 py-0.5 rounded pointer-events-none">
             ⌘K
@@ -150,19 +169,31 @@ export default function Sidebar({
                 <button
                   key={c.id}
                   onClick={handleResultClick}
-                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors text-left"
+                  className="w-full flex flex-col px-3 py-2.5 hover:bg-white/5 transition-colors text-left gap-0.5"
                 >
-                  <span className="text-sm text-white truncate">{c.name}</span>
-                  <span className="text-xs text-[#8B8FA8] ml-2 flex-shrink-0">{c.phone}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-white truncate">{c.name}</span>
+                    <span className="text-[11px] text-[#8B8FA8] flex-shrink-0">{c.phone}</span>
+                  </div>
+                  {c.vehicle && (
+                    <span className="text-[11px] text-[#8B8FA8] truncate">{c.vehicle}</span>
+                  )}
                 </button>
               ))}
             </div>
           )}
 
-          {/* No results */}
-          {searchOpen && query.length >= 2 && results.length === 0 && (
+          {/* Searching spinner */}
+          {searchOpen && isSearching && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-lg shadow-xl z-50 px-3 py-2.5">
-              <span className="text-xs text-[#8B8FA8]">Aucun résultat</span>
+              <span className="text-xs text-[#8B8FA8]">Recherche…</span>
+            </div>
+          )}
+
+          {/* No results — only show after search completes (not while typing/loading) */}
+          {searchOpen && !isSearching && query.length >= 2 && results.length === 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-lg shadow-xl z-50 px-3 py-2.5">
+              <span className="text-xs text-[#8B8FA8]">Aucun résultat pour &ldquo;{query}&rdquo;</span>
             </div>
           )}
         </div>
