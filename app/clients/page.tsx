@@ -5,39 +5,50 @@ import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { Search, Phone, Eye, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
-
-const initialClients = [
-  { id: '1', name: 'Ahmed Ben Ali', phone: '06 11 22 33 44', vehicle: 'TMAX 125', immatriculation: 'AA-123-BB', vip: false, lastVisit: 2 },
-  { id: '2', name: 'Karim Dupont', phone: '06 55 44 33 22', vehicle: 'Yamaha XMAX 300', immatriculation: 'BB-456-CC', vip: true, lastVisit: 5 },
-  { id: '3', name: 'Sami Trabelsi', phone: '07 77 66 55 44', vehicle: 'Piaggio Liberty 125', immatriculation: 'CC-789-DD', vip: false, lastVisit: 8 },
-  { id: '4', name: 'Youssef Martin', phone: '06 99 88 77 66', vehicle: 'Honda PCX 125', immatriculation: 'DD-101-EE', vip: false, lastVisit: 12 },
-  { id: '5', name: 'Fatima Zahra', phone: '06 44 55 66 77', vehicle: 'Kymco Agility 125', immatriculation: 'EE-202-FF', vip: true, lastVisit: 3 },
-  { id: '6', name: 'Mohamed Alami', phone: '07 22 33 44 55', vehicle: 'Peugeot Tweet 125', immatriculation: 'FF-303-GG', vip: false, lastVisit: 15 },
-  { id: '7', name: 'Leila Bouazza', phone: '06 88 77 66 55', vehicle: 'Sym Symphony 125', immatriculation: 'GG-404-HH', vip: false, lastVisit: 7 },
-  { id: '8', name: 'Nadia El Mansouri', phone: '07 11 22 33 44', vehicle: 'Honda Forza 300', immatriculation: 'HH-505-II', vip: true, lastVisit: 1 },
-  { id: '9', name: 'Rachid Tazi', phone: '06 66 77 88 99', vehicle: 'Piaggio MP3 300', immatriculation: 'II-606-JJ', vip: false, lastVisit: 9 },
-  { id: '10', name: 'Sofia Bennani', phone: '07 55 44 33 22', vehicle: 'Kymco Xciting 400', immatriculation: 'JJ-707-KK', vip: false, lastVisit: 4 },
-];
+import { clientsAPI } from '../../lib/api';
+import type { Client } from '../../lib/types';
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState(initialClients);
-  const [selectedClient, setSelectedClient] = useState<typeof initialClients[0] | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [clientForm, setClientForm] = useState({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
+  const [clientForm, setClientForm] = useState({
+    name: '', phone: '', vehicle: '', immatriculation: '', vip: false,
+  });
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Load clients from Supabase on mount
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('clients');
-    if (saved) {
-      try { setClients(JSON.parse(saved)); } catch { }
-    }
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const data = await clientsAPI.getAll();
+        setClients(data);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Erreur chargement clients', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void load();
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('clients', JSON.stringify(clients));
-  }, [clients]);
+  const filteredClients = searchQuery.trim()
+    ? clients.filter(
+        (c) =>
+          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.phone.includes(searchQuery) ||
+          (c.vehicle ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : clients;
 
   const stats = [
     { title: 'Total clients', value: clients.length },
@@ -50,26 +61,30 @@ export default function ClientsPage() {
     window.open(`tel:${phone.replace(/\s/g, '')}`);
   };
 
-  const handleCreateClient = () => {
+  const handleCreateClient = async () => {
     if (!clientForm.name || !clientForm.phone || !clientForm.vehicle) {
-      setToast({ message: 'Tous les champs sont nécessaires', type: 'error' });
-      setTimeout(() => setToast(null), 3000);
+      showToast('Tous les champs sont nécessaires', 'error');
       return;
     }
-    const newClient = {
-      id: Date.now().toString(),
-      name: clientForm.name,
-      phone: clientForm.phone,
-      vehicle: clientForm.vehicle,
-      immatriculation: clientForm.immatriculation || '',
-      vip: clientForm.vip,
-      lastVisit: 0,
-    };
-    setClients((prev) => [newClient, ...prev]);
-    setClientForm({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
-    setIsAddClientOpen(false);
-    setToast({ message: 'Client ajouté avec succès !', type: 'success' });
-    setTimeout(() => setToast(null), 3000);
+    setIsSaving(true);
+    try {
+      const created = await clientsAPI.create({
+        name: clientForm.name,
+        phone: clientForm.phone,
+        vehicle: clientForm.vehicle,
+        licensePlate: clientForm.immatriculation || undefined,
+        vip: clientForm.vip,
+        lastVisit: 0,
+      });
+      setClients((prev) => [created, ...prev]);
+      setClientForm({ name: '', phone: '', vehicle: '', immatriculation: '', vip: false });
+      setIsAddClientOpen(false);
+      showToast('Client ajouté avec succès !', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur création client', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -108,72 +123,92 @@ export default function ClientsPage() {
             <input
               type="text"
               placeholder="Rechercher un client, un téléphone ou un véhicule"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-[#2A2D3A] rounded-lg bg-[#0F1117] text-white text-sm placeholder-[#8B8FA8] focus:outline-none focus:ring-2 focus:ring-[#FF6B2B]/50 focus:border-[#FF6B2B]/50 transition-all"
             />
           </div>
         </section>
 
         {/* Client cards */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {clients.map((client) => {
-            const initials = client.name
-              .split(' ')
-              .map((word) => word[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase();
+        {isLoading ? (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-36 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl animate-pulse" />
+            ))}
+          </section>
+        ) : filteredClients.length === 0 ? (
+          <div className="text-center py-16 text-[#8B8FA8] text-sm">
+            {searchQuery ? `Aucun client trouvé pour "${searchQuery}"` : 'Aucun client — ajoutez-en un !'}
+          </div>
+        ) : (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredClients.map((client) => {
+              const initials = client.name
+                .split(' ')
+                .map((word) => word[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
 
-            return (
-              <article
-                key={client.phone}
-                className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5 hover:border-[#3A3D4A] transition-colors group"
-              >
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#FF6B2B]/10 rounded-lg flex items-center justify-center text-sm font-semibold text-[#FF6B2B]">
-                      {initials}
+              return (
+                <article
+                  key={client.id}
+                  className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5 hover:border-[#3A3D4A] transition-colors group"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#FF6B2B]/10 rounded-lg flex items-center justify-center text-sm font-semibold text-[#FF6B2B]">
+                        {initials}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-white text-sm">{client.name}</h3>
+                        <p className="text-xs text-[#8B8FA8]">{client.vehicle ?? '—'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-white text-sm">{client.name}</h3>
-                      <p className="text-xs text-[#8B8FA8]">{client.vehicle}</p>
-                    </div>
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded border ${
+                      client.vip
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${client.vip ? 'bg-amber-400' : 'bg-emerald-500'}`} />
+                      {client.vip ? 'VIP' : 'Actif'}
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                    Actif
-                  </span>
-                </div>
 
-                <div className="mb-4">
-                  <span className="text-xs text-[#8B8FA8]">
-                    Dernière visite: il y a {client.lastVisit} jours
-                  </span>
-                </div>
+                  <div className="mb-4">
+                    <span className="text-xs text-[#8B8FA8]">
+                      {client.lastVisit > 0
+                        ? `Dernière visite: il y a ${client.lastVisit} jours`
+                        : 'Nouveau client'}
+                    </span>
+                  </div>
 
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={() => callClient(client.phone)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    Appeler
-                  </button>
-                  <button
-                    onClick={() => setSelectedClient(client)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF6B2B]/10 border border-[#FF6B2B]/20 text-xs font-medium text-[#FF6B2B] hover:bg-[#FF6B2B]/20 transition-colors"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    Voir
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </section>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={() => callClient(client.phone)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Appeler
+                    </button>
+                    <button
+                      onClick={() => setSelectedClient(client)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF6B2B]/10 border border-[#FF6B2B]/20 text-xs font-medium text-[#FF6B2B] hover:bg-[#FF6B2B]/20 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Voir
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
 
         <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-6 text-sm text-[#8B8FA8]">
           <p className="font-semibold text-white">Résumé</p>
-          <p className="mt-2">{clients.length} clients affichés</p>
+          <p className="mt-2">{filteredClients.length} clients affichés</p>
         </div>
       </main>
 
@@ -185,10 +220,13 @@ export default function ClientsPage() {
             <div className="space-y-2">
               <p className="text-sm text-[#8B8FA8]">Nom : <span className="font-medium text-white">{selectedClient.name}</span></p>
               <p className="text-sm text-[#8B8FA8]">Téléphone : <span className="font-medium text-white">{selectedClient.phone}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Véhicule : <span className="font-medium text-white">{selectedClient.vehicle}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Immatriculation : <span className="font-medium text-white">{selectedClient.immatriculation || 'Non spécifiée'}</span></p>
+              <p className="text-sm text-[#8B8FA8]">Véhicule : <span className="font-medium text-white">{selectedClient.vehicle ?? '—'}</span></p>
+              <p className="text-sm text-[#8B8FA8]">Immatriculation : <span className="font-medium text-white">{selectedClient.licensePlate ?? 'Non spécifiée'}</span></p>
+              <p className="text-sm text-[#8B8FA8]">Email : <span className="font-medium text-white">{selectedClient.email ?? '—'}</span></p>
               <p className="text-sm text-[#8B8FA8]">VIP : <span className="font-medium text-white">{selectedClient.vip ? 'Oui' : 'Non'}</span></p>
-              <p className="text-sm text-[#8B8FA8]">Dernière visite : <span className="font-medium text-white">il y a {selectedClient.lastVisit} jours</span></p>
+              <p className="text-sm text-[#8B8FA8]">Dernière visite : <span className="font-medium text-white">
+                {selectedClient.lastVisit > 0 ? `il y a ${selectedClient.lastVisit} jours` : 'Nouveau client'}
+              </span></p>
             </div>
             <button
               onClick={() => setSelectedClient(null)}
@@ -213,10 +251,11 @@ export default function ClientsPage() {
               Annuler
             </button>
             <button
-              onClick={handleCreateClient}
-              className="px-4 py-2 rounded-lg bg-[#FF6B2B] text-white text-sm font-medium hover:bg-[#E55A1F] transition-colors"
+              onClick={() => void handleCreateClient()}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg bg-[#FF6B2B] text-white text-sm font-medium hover:bg-[#E55A1F] disabled:opacity-50 transition-colors"
             >
-              Enregistrer
+              {isSaving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </>
         }
