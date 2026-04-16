@@ -1207,9 +1207,9 @@ export async function createFactureDirect(
 
   const newFacture = await getFactureWithPayments(factureId, garageId);
 
-  // Zapier webhook notification (fire-and-forget, server-side via API route)
+  // Zapier webhook notification (fire-and-forget, server-side via /api/zapier)
   if (typeof window !== 'undefined') {
-    void fetch('/api/factures', {
+    void fetch('/api/zapier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
