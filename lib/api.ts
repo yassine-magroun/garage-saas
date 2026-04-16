@@ -69,8 +69,8 @@ const mapClient = (r: Record<string, unknown>): Client => ({
   email: r.email ? String(r.email) : undefined,
   address: r.address ? String(r.address) : undefined,
   vehicle: r.vehicle ? String(r.vehicle) : undefined,
-  licensePlate: r.license_plate ? String(r.license_plate) : undefined,
-  vip: Boolean(r.vip),
+  licensePlate: r.immatriculation ? String(r.immatriculation) : undefined,
+  vip: Boolean(r.is_vip ?? r.vip),
   lastVisit: Number(r.last_visit_days ?? 0),
   lastContactDate: r.last_contact_date ? String(r.last_contact_date) : null,
   createdAt: String(r.created_at),
@@ -263,7 +263,6 @@ export const clientsAPI = {
       .from('clients')
       .select('*')
       .eq('garage_id', garageId)
-      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return (data ?? []).map(mapClient);
@@ -294,9 +293,8 @@ export const clientsAPI = {
         email: payload.email ?? null,
         address: payload.address ?? null,
         vehicle: payload.vehicle ?? null,
-        license_plate: payload.licensePlate ?? null,
-        vip: payload.vip ?? false,
-        last_visit_days: payload.lastVisit ?? 0,
+        immatriculation: payload.licensePlate ?? null,
+        is_vip: payload.vip ?? false,
       })
       .select('*')
       .single();
