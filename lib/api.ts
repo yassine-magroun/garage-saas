@@ -6,6 +6,7 @@
 
 import { supabase } from './supabase';
 import { getGarageId } from './garage';
+import { toNum } from './helpers/money';
 import type {
   Client,
   Intervention,
@@ -82,6 +83,7 @@ const mapIntervention = (r: Record<string, unknown>): Intervention => ({
   garageId: String(r.garage_id),
   clientId: String(r.client_id),
   vehicleId: r.vehicle_id ? String(r.vehicle_id) : undefined,
+  vehicule: r.vehicule ? String(r.vehicule) : undefined,
   type: String(r.type ?? ''),
   status: String(r.status) as Intervention['status'],
   date: String(r.date ?? ''),
@@ -167,10 +169,10 @@ function mapFacture(row: Record<string, unknown>): Facture {
     devisId: row.devis_id as string | null,
     interventionId: row.intervention_id ? String(row.intervention_id) : null,
     status: row.status as FactureStatus,
-    totalHt: Number(row.total_ht),
-    tvaRate: Number(row.tva_rate),
-    totalTtc: Number(row.total_ttc),
-    amountPaid: Number(row.amount_paid),
+    totalHt: toNum(row.total_ht),
+    tvaRate: toNum(row.tva_rate),
+    totalTtc: toNum(row.total_ttc),
+    amountPaid: toNum(row.amount_paid),
     dueDate: row.due_date as string | null,
     notes: row.notes as string | null,
     createdAt: row.created_at as string,
@@ -327,6 +329,7 @@ export const interventionsAPI = {
         garage_id: garageId,
         client_id: payload.clientId,
         vehicle_id: payload.vehicleId ?? null,
+        vehicule: payload.vehicule ?? null,
         type: payload.type,
         status: payload.status,
         date: payload.date,
@@ -1209,15 +1212,21 @@ export async function createFactureDirect(
 
   // Zapier webhook notification (fire-and-forget, server-side via /api/zapier)
   if (typeof window !== 'undefined') {
+    const tvaAmount = (newFacture.totalTtc ?? 0) - (newFacture.totalHt ?? 0);
     void fetch('/api/zapier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         factureId: newFacture.id,
         clientName: newFacture.clientName ?? 'Client',
+        clientEmail: newFacture.clientEmail ?? '',
+        amountHt: newFacture.totalHt ?? 0,
         totalTtc: newFacture.totalTtc ?? 0,
+        tva: Math.round(tvaAmount * 100) / 100,
         displayRef: newFacture.displayRef ?? newFacture.id,
         status: newFacture.status ?? 'émise',
+        paymentStatus: newFacture.amountPaid > 0 ? 'partial' : 'unpaid',
+        createdAt: newFacture.createdAt ?? new Date().toISOString(),
       }),
     });
   }

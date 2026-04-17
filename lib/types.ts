@@ -37,7 +37,8 @@ export type Intervention = {
   id: string;
   garageId: string;
   clientId: string;
-  vehicleId?: string;     // vehicle_id text
+  vehicleId?: string;     // vehicle_id text (legacy, kept for compat)
+  vehicule?: string;      // vehicule text — free text vehicle description
   type: string;
   status: InterventionStatus;
   date: string;

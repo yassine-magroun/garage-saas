@@ -124,14 +124,36 @@ function InterventionsContent() {
       return;
     }
     try {
-      const created = await interventionsAPI.create({
-        clientId: interventionForm.clientId,
-        vehicleId: interventionForm.vehicle,
-        type: interventionForm.type,
-        status: 'En attente' as Intervention['status'],
-        date: interventionForm.date,
-        price: parseFloat(interventionForm.price),
+      const res = await fetch('/api/interventions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: interventionForm.clientId,
+          vehicule: interventionForm.vehicle,
+          type: interventionForm.type,
+          prix: parseFloat(interventionForm.price),
+          date: interventionForm.date,
+          statut: 'En attente',
+        }),
       });
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        throw new Error(typeof d.error === 'string' ? d.error : 'Erreur création');
+      }
+      const raw = await res.json() as Record<string, unknown>;
+      const created: Intervention = {
+        id: String(raw.id),
+        garageId: String(raw.garage_id),
+        clientId: String(raw.client_id),
+        vehicule: raw.vehicule ? String(raw.vehicule) : undefined,
+        type: String(raw.type ?? ''),
+        status: String(raw.status) as Intervention['status'],
+        date: String(raw.date ?? ''),
+        price: Number(raw.price ?? 0),
+        notes: raw.notes ? String(raw.notes) : undefined,
+        createdAt: String(raw.created_at),
+        updatedAt: String(raw.updated_at),
+      };
       setInterventions((prev) => [created, ...prev]);
       setInterventionForm({ clientId: '', vehicle: '', type: '', price: '', date: new Date().toISOString().slice(0, 10) });
       setIsNewInterventionOpen(false);
@@ -230,7 +252,7 @@ function InterventionsContent() {
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-white text-sm truncate">{getClientName(intervention.clientId)}</h2>
-                      <p className="text-xs text-[#8B8FA8] mt-0.5 truncate">{intervention.type}</p>
+                      <p className="text-xs text-[#8B8FA8] mt-0.5 truncate">{intervention.vehicule ?? intervention.type}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded whitespace-nowrap ${style}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${dot}`} />

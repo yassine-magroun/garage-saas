@@ -6,6 +6,7 @@ import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
 import VehiclePhotoUpload from '../components/VehiclePhotoUpload';
 import { Plus, FileDown, Search, BookOpen, Camera, X } from 'lucide-react';
+import { FLAGS } from '../../lib/feature-flags';
 import type { LivreDePolice } from '../../lib/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -462,7 +463,12 @@ function LivreDePoliceContent() {
                 <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-4">
                   État du véhicule — Photos
                 </h4>
-                {!garageId ? (
+                {!FLAGS.PHOTOS_UPLOAD ? (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                    📸 Upload photos temporairement désactivé — formulaire enregistrable sans photos.
+                    Configuration Storage en cours.
+                  </div>
+                ) : !garageId ? (
                   <p className="text-xs text-[#8B8FA8]">Chargement…</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
