@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { Package, Plus, Pencil, Trash2, AlertTriangle, CheckCircle, XCircle, X } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 import { piecesStockAPI } from '../../lib/api';
@@ -59,7 +59,6 @@ export default function StockPage() {
   const [garageId, setGarageId] = useState('');
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,8 +69,7 @@ export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   useEffect(() => {
@@ -173,7 +171,6 @@ export default function StockPage() {
   return (
     <AuthGuard>
       <PageLayout activePage="stock">
-        <Toast toast={toast} />
 
         <header className="bg-[#1A1D27] border-b border-[#2A2D3A] px-4 md:px-8 py-4 md:py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">

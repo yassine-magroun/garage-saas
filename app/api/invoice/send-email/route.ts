@@ -181,9 +181,25 @@ export async function POST(request: NextRequest): Promise<Response> {
   console.log('Resend result:', { data, error });
 
   if (error) {
-    console.error('Resend error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+  console.error('Resend error:', error);
+  return Response.json({ error: error.message }, { status: 500 });
+}
 
-  return Response.json({ success: true, invoiceNum });
+// ✅ Zapier webhook
+await fetch("https://hooks.zapier.com/hooks/catch/27236872/uj2qe3i/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    factureId,
+    garageId,
+    clientEmail,
+    clientName,
+    invoiceNum,
+  }),
+});
+
+return Response.json({ success: true, invoiceNum });
+
 }

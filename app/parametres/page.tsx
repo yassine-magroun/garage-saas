@@ -1,7 +1,7 @@
 'use client';
 
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import {
   Save, User, Bell, Shield, Palette, Package, Plus, Trash2, Pencil,
   Check, X, ImageIcon, Calculator, Moon, Sun, CreditCard, Zap,
@@ -41,11 +41,9 @@ export default function ParametresPage() {
   const [prestLoading, setPrestLoading] = useState(false);
   const [catalogSeeding, setCatalogSeeding] = useState(false);
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   useEffect(() => {
@@ -610,7 +608,6 @@ export default function ParametresPage() {
 
       </main>
 
-      <Toast toast={toast} />
     </PageLayout>
   );
 }

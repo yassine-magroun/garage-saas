@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { FileText, Check, X, ExternalLink } from 'lucide-react';
 import { getGarageId } from '../../lib/garage';
 import { supabase } from '../../lib/supabase';
@@ -53,11 +53,9 @@ function mapRow(r: Record<string, unknown>): FactureAchat {
 export default function FacturesAchatsPage() {
   const [factures, setFactures] = useState<FactureAchat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   useEffect(() => {
@@ -177,7 +175,6 @@ export default function FacturesAchatsPage() {
           )}
         </main>
       </PageLayout>
-      <Toast toast={toast} />
     </AuthGuard>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { Plus, Trash2, Copy, Package } from 'lucide-react';
 import {
   createDevis,
@@ -49,7 +49,6 @@ export default function DevisPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [selectedDevis, setSelectedDevis] = useState<Devis | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -62,8 +61,7 @@ export default function DevisPage() {
   const [showPiecePicker, setShowPiecePicker] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   useEffect(() => {
@@ -541,7 +539,6 @@ export default function DevisPage() {
           )}
         </main>
       </PageLayout>
-      <Toast toast={toast} />
     </AuthGuard>
   );
 }

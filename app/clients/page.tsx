@@ -2,7 +2,7 @@
 
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { Search, Phone, Eye, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { clientsAPI } from '../../lib/api';
@@ -15,14 +15,12 @@ export default function ClientsPage() {
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [clientForm, setClientForm] = useState({
     name: '', phone: '', vehicle: '', immatriculation: '', vip: false,
   });
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   // Load clients from Supabase on mount
@@ -307,7 +305,6 @@ export default function ClientsPage() {
         </div>
       </Modal>
 
-      <Toast toast={toast} />
     </PageLayout>
   );
 }

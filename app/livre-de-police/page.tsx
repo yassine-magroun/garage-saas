@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import VehiclePhotoUpload from '../components/VehiclePhotoUpload';
 import { Plus, FileDown, Search, BookOpen, Camera, X } from 'lucide-react';
 import { FLAGS } from '../../lib/feature-flags';
@@ -71,15 +71,13 @@ function LivreDePoliceContent() {
   const [editEntry, setEditEntry] = useState<LivreDePolice | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [garageId, setGarageId] = useState('');
   // Stable ID used as storage path prefix for new entry photos
   const [photoEntryId, setPhotoEntryId] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   // Fetch garageId once on mount
@@ -573,7 +571,6 @@ function LivreDePoliceContent() {
         </div>
       )}
 
-      <Toast toast={toast} />
     </PageLayout>
   );
 }

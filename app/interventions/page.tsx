@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { Plus, ChevronRight, LayoutList, Columns3, Wrench } from 'lucide-react';
 import InterventionSelect from '../components/InterventionSelect';
 import EmptyState from '../components/EmptyState';
@@ -49,7 +49,6 @@ function InterventionsContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewInterventionOpen, setIsNewInterventionOpen] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [filter, setFilter] = useState<string>('Tous');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>(() => {
@@ -64,8 +63,7 @@ function InterventionsContent() {
   });
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   const getClientName = (clientId: string) => clients.find((c) => c.id === clientId)?.name ?? 'Client inconnu';
@@ -433,7 +431,6 @@ function InterventionsContent() {
         </div>
       </Modal>
 
-      <Toast toast={toast} />
     </PageLayout>
   );
 }

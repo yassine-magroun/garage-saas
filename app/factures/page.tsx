@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
-import Toast from '../components/Toast';
+import { toast } from 'sonner';
 import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy, Plus, Package, Trash2 } from 'lucide-react';
 import { getFacturesList, getFactureWithPayments, addPayment, duplicateFacture, createFactureDirect, piecesStockAPI, clientsAPI } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
@@ -35,7 +35,6 @@ export default function FacturesPage() {
   const [factures, setFactures] = useState<Facture[]>([]);
   const [selectedFacture, setSelectedFacture] = useState<Facture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Payment modal
   const [paymentModal, setPaymentModal] = useState(false);
@@ -67,8 +66,7 @@ export default function FacturesPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === 'success') toast.success(message); else toast.error(message);
   };
 
   useEffect(() => {
@@ -728,7 +726,6 @@ export default function FacturesPage() {
           </div>
         )}
       </PageLayout>
-      <Toast toast={toast} />
     </AuthGuard>
   );
 }

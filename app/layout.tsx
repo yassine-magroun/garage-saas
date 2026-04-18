@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import Providers from './providers';
 import CommandPalette from './components/CommandPalette';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 const inter = Inter({
@@ -28,6 +29,13 @@ export default function RootLayout({
         <body className="min-h-full">
           <Providers>{children}</Providers>
           <CommandPalette />
+          <Toaster
+            position="bottom-right"
+            theme="dark"
+            toastOptions={{
+              style: { background: '#1A1D27', border: '1px solid #2A2D3A', color: '#fff' },
+            }}
+          />
         </body>
       </html>
     </ClerkProvider>
