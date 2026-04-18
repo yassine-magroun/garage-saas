@@ -1,0 +1,36 @@
+:root {
+  /* Brand */
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-glow: rgba(59, 130, 246, 0.15);
+
+  /* Dark surfaces */
+  --bg-0: #09090b;
+  --bg-1: #18181b;
+  --bg-2: #27272a;
+  --bg-3: #3f3f46;
+
+  /* Text */
+  --fg-0: #fafafa;
+  --fg-1: #a1a1aa;
+  --fg-2: #71717a;
+
+  /* Semantic */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+  --info:    #06b6d4;
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-glow: 0 0 24px var(--brand-glow);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
