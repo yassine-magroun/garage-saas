@@ -721,6 +721,13 @@ export async function addPayment(
     });
   }
 
+  // Trigger: facture fully paid → fire automation (comptable email + gsheet)
+  if (newStatus === 'paid' && prevStatus !== 'paid' && typeof window !== 'undefined') {
+    void fetch(`/api/factures/${factureId}/trigger-automation`, {
+      method: 'POST',
+    });
+  }
+
   // Trigger 1: facture fully paid → advance linked intervention to "Livré"
   if (newStatus === 'paid' && current.intervention_id) {
     const intId = String(current.intervention_id);
