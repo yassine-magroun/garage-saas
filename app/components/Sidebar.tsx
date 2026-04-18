@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Users, Wrench, FileText, ClipboardList,
-  Settings, Zap, Package, BookOpen, Search, X, Plus,
+  Settings, Zap, Package, BookOpen, Search, Plus,
   ShoppingCart, TrendingUp, Shield, ExternalLink,
   ArrowDownToLine,
 } from 'lucide-react';
@@ -31,8 +30,6 @@ interface NavItem {
 
 interface NavSection { title: string; items: NavItem[] }
 
-type ClientResult = { id: string; name: string; phone: string; vehicle: string | null };
-
 function BadgeDot({ badge }: { badge: Badge }) {
   if (!badge.count) return null;
   const colors = {
@@ -48,28 +45,18 @@ function BadgeDot({ badge }: { badge: Badge }) {
 }
 
 export default function Sidebar({ activePage }: { activePage: ActivePage; garageName?: string }) {
-  const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ClientResult[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [garageIdReady, setGarageIdReady] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
   const [healthOk, setHealthOk] = useState<boolean | null>(null);
 
   const garageIdRef = useRef<string | null>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch garageId + badge counts
   useEffect(() => {
     fetch('/api/garage/me')
       .then((r) => r.json() as Promise<{ garageId: string | null }>)
       .then(async ({ garageId: gid }) => {
-        if (!gid) { setGarageIdReady(true); return; }
+        if (!gid) return;
         garageIdRef.current = gid;
-        setGarageIdReady(true);
         // Fetch badge counts in parallel
         const [intRes, facRes, stockRes, achatsRes] = await Promise.all([
           supabase.from('interventions').select('id', { count: 'exact', head: true })
@@ -90,7 +77,7 @@ export default function Sidebar({ activePage }: { activePage: ActivePage; garage
           achats: (achatsRes as { count?: number | null }).count ?? 0,
         });
       })
-      .catch(() => { setGarageIdReady(true); });
+      .catch(() => { /* ignore */ });
   }, []);
 
   // Health ping every 60s
@@ -103,49 +90,6 @@ export default function Sidebar({ activePage }: { activePage: ActivePage; garage
     const id = setInterval(() => { void check(); }, 60_000);
     return () => clearInterval(id);
   }, []);
-
-  // Ctrl+K
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        inputRef.current?.focus();
-        setSearchOpen(true);
-      }
-      if (e.key === 'Escape') { setSearchOpen(false); setQuery(''); setResults([]); }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
-
-  // Click outside to close search
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const runSearch = useCallback(async (q: string) => {
-    const gid = garageIdRef.current;
-    if (!gid || q.length < 2) { setResults([]); setIsSearching(false); return; }
-    setIsSearching(true);
-    try {
-      const { data } = await supabase.from('clients').select('id, name, phone, vehicle')
-        .eq('garage_id', gid).or(`name.ilike.%${q}%,phone.ilike.%${q}%`).limit(6);
-      setResults((data ?? []) as ClientResult[]);
-    } finally { setIsSearching(false); }
-  }, []);
-
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-    setSearchOpen(true);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (val.length < 2) { setResults([]); return; }
-    debounceRef.current = setTimeout(() => { void runSearch(val); }, 280);
-  };
 
   const b = (key: string, color: Badge['color'] = 'default'): Badge | undefined => {
     const count = badges[key] ?? 0;
@@ -203,58 +147,16 @@ export default function Sidebar({ activePage }: { activePage: ActivePage; garage
         <p className="text-[11px] text-[#8B8FA8] mt-0.5">La gestion garage, enfin simple.</p>
       </div>
 
-      {/* Search */}
-      <div className="px-3 pt-3 pb-1" ref={searchRef}>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8B8FA8] pointer-events-none" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={handleQueryChange}
-            onFocus={() => setSearchOpen(true)}
-            placeholder={garageIdReady ? 'Rechercher… (⌘K)' : 'Chargement…'}
-            disabled={!garageIdReady}
-            className="w-full pl-8 pr-3 py-2 text-xs bg-[#0F1117] border border-[#2A2D3A] rounded-lg text-white placeholder-[#8B8FA8] focus:outline-none focus:ring-1 focus:ring-[#FF6B2B]/50 transition-all disabled:opacity-50"
-          />
-          {query && (
-            <button
-              onClick={() => { setQuery(''); setResults([]); setSearchOpen(false); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B8FA8] hover:text-white"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-
-          {searchOpen && results.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl shadow-2xl z-50 overflow-hidden">
-              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-[#8B8FA8] uppercase tracking-wider">Clients</p>
-              {results.map((c) => (
-                <button key={c.id} onClick={() => { router.push('/clients'); setSearchOpen(false); setQuery(''); setResults([]); }}
-                  className="w-full flex flex-col px-3 py-2 hover:bg-white/5 transition-colors text-left">
-                  <span className="text-xs font-medium text-white">{c.name}</span>
-                  <span className="text-[11px] text-[#8B8FA8]">{c.vehicle ?? c.phone}</span>
-                </button>
-              ))}
-              <div className="border-t border-[#2A2D3A] px-3 py-2">
-                <button onClick={() => { router.push(`/interventions?openModal=true`); setSearchOpen(false); setQuery(''); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FF6B2B]/10 text-[#FF6B2B] text-xs font-medium hover:bg-[#FF6B2B]/20 transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> Nouvelle intervention
-                </button>
-              </div>
-            </div>
-          )}
-          {searchOpen && isSearching && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl shadow-xl z-50 px-3 py-2.5">
-              <span className="text-xs text-[#8B8FA8]">Recherche…</span>
-            </div>
-          )}
-          {searchOpen && !isSearching && query.length >= 2 && results.length === 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl shadow-xl z-50 px-3 py-2.5">
-              <span className="text-xs text-[#8B8FA8]">Aucun résultat pour «{query}»</span>
-            </div>
-          )}
-        </div>
+      {/* Search trigger */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
+          className="w-full flex items-center gap-2.5 px-3 py-2 bg-[#0F1117] border border-[#2A2D3A] rounded-lg text-[#8B8FA8] text-xs hover:border-[#FF6B2B]/40 hover:text-white transition-all group"
+        >
+          <Search className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="flex-1 text-left">Rechercher…</span>
+          <kbd className="text-[9px] bg-[#2A2D3A] px-1.5 py-0.5 rounded border border-[#3A3D4A] group-hover:border-[#FF6B2B]/30">⌘K</kbd>
+        </button>
       </div>
 
       {/* Sectioned nav */}
