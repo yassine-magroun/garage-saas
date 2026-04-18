@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import { toast } from 'sonner';
-import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy, Plus, Package, Trash2 } from 'lucide-react';
+import { Euro, Clock, CreditCard, X, FileDown, Mail, Copy, Plus, Package, Trash2, Shield, Ban, CheckCircle2, History } from 'lucide-react';
 import { getFacturesList, getFactureWithPayments, addPayment, duplicateFacture, createFactureDirect, piecesStockAPI, clientsAPI } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
+import { FLAGS } from '../../lib/feature-flags';
 import type { Facture, FactureStatus, Payment, PaymentMethod, Piece, Client } from '../../lib/types';
 
 const STATUS_LABELS: Record<FactureStatus, string> = {
@@ -180,6 +181,19 @@ export default function FacturesPage() {
       showToast(err instanceof Error ? err.message : 'Erreur duplication', 'error');
     } finally {
       setIsDuplicating(false);
+    }
+  };
+
+  const handleCancelFacture = async (facture: Facture) => {
+    if (!confirm(`Annuler la facture ${facture.displayRef ?? facture.id.slice(0, 8)} ?`)) return;
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      await supabase.from('factures').update({ status: 'cancelled' }).eq('id', facture.id).eq('garage_id', garageId);
+      setFactures(prev => prev.map(f => f.id === facture.id ? { ...f, status: 'cancelled' as FactureStatus } : f));
+      if (selectedFacture?.id === facture.id) setSelectedFacture(f => f ? { ...f, status: 'cancelled' as FactureStatus } : f);
+      showToast('Facture annulée', 'success');
+    } catch {
+      showToast('Erreur lors de l\'annulation', 'error');
     }
   };
 
@@ -423,7 +437,7 @@ export default function FacturesPage() {
             ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-[3fr_2fr] items-start">
             {/* Facture list */}
             <div className="space-y-3">
               {isLoading ? (
@@ -506,98 +520,148 @@ export default function FacturesPage() {
               )}
             </div>
 
-            {/* Selected facture detail */}
-            {selectedFacture && (
-              <div className="bg-[#1A1D27] p-6 rounded-xl border border-[#2A2D3A] space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-white">
-                      {selectedFacture.displayRef ?? selectedFacture.id.slice(0, 8).toUpperCase()} — {selectedFacture.clientName ?? selectedFacture.clientId.slice(0, 8)}
-                    </h3>
-                    <p className="text-xs text-[#8B8FA8]">
-                      {new Date(selectedFacture.createdAt).toLocaleDateString('fr-FR')}
-                      {selectedFacture.dueDate &&
-                        ` · Échéance: ${new Date(selectedFacture.dueDate).toLocaleDateString('fr-FR')}`}
-                    </p>
+            {/* Sticky actions panel */}
+            {selectedFacture ? (
+              <div className="sticky top-4 bg-[#1A1D27] rounded-xl border border-[#2A2D3A] overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-[#2A2D3A]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-mono text-[#FF6B2B] mb-0.5">
+                        {selectedFacture.displayRef ?? selectedFacture.id.slice(0, 8).toUpperCase()}
+                      </p>
+                      <p className="text-sm font-bold text-white truncate">
+                        {selectedFacture.clientName ?? selectedFacture.clientId.slice(0, 8)}
+                      </p>
+                      <p className="text-xs text-[#8B8FA8] mt-0.5">
+                        {new Date(selectedFacture.createdAt).toLocaleDateString('fr-FR')}
+                        {selectedFacture.dueDate && ` · Éch. ${new Date(selectedFacture.dueDate).toLocaleDateString('fr-FR')}`}
+                      </p>
+                    </div>
+                    <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[selectedFacture.status]}`}>
+                      {STATUS_LABELS[selectedFacture.status]}
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[selectedFacture.status]}`}>
-                    {STATUS_LABELS[selectedFacture.status]}
-                  </span>
                 </div>
 
+                {/* Line items */}
                 {selectedFacture.items && selectedFacture.items.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-[#8B8FA8] uppercase tracking-wide">Lignes</p>
+                  <div className="p-4 border-b border-[#2A2D3A] space-y-1.5 max-h-40 overflow-y-auto">
                     {selectedFacture.items.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm p-2 bg-[#0F1117] rounded-lg">
-                        <span className="text-white">{item.description}</span>
-                        <span className="text-[#C4C7D4] ml-4 whitespace-nowrap">
-                          {item.quantity} × {item.unitPriceHt.toFixed(2)} € = {item.totalHt.toFixed(2)} € HT
+                      <div key={item.id} className="flex justify-between text-xs gap-3 py-1">
+                        <span className="text-white truncate flex-1">{item.description}</span>
+                        <span className="text-[#8B8FA8] whitespace-nowrap flex-shrink-0">
+                          {item.quantity} × {item.unitPriceHt.toFixed(2)} €
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="flex justify-end gap-6 text-sm font-medium pt-2 border-t border-[#2A2D3A]">
-                  <span className="text-[#C4C7D4]">HT: {selectedFacture.totalHt.toFixed(2)} €</span>
-                  <span className="text-[#C4C7D4]">TVA {selectedFacture.tvaRate}%</span>
-                  <span className="font-bold text-white">TTC: {selectedFacture.totalTtc.toFixed(2)} €</span>
+                {/* Financial summary */}
+                <div className="px-4 py-3 bg-[#0F1117]/60 border-b border-[#2A2D3A]">
+                  <div className="flex justify-between text-xs text-[#8B8FA8] mb-1">
+                    <span>HT</span><span>{selectedFacture.totalHt.toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-[#8B8FA8] mb-2">
+                    <span>TVA {selectedFacture.tvaRate}%</span>
+                    <span>{(selectedFacture.totalTtc - selectedFacture.totalHt).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-white border-t border-[#2A2D3A] pt-2">
+                    <span>Total TTC</span><span>{selectedFacture.totalTtc.toFixed(2)} €</span>
+                  </div>
+                  {selectedFacture.amountPaid > 0 && (
+                    <div className="flex justify-between text-xs text-emerald-400 mt-1">
+                      <span>Payé</span><span>−{selectedFacture.amountPaid.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {(selectedFacture.status === 'unpaid' || selectedFacture.status === 'partial') && (
+                    <div className="flex justify-between text-sm font-semibold text-amber-400 mt-1">
+                      <span>Reste dû</span>
+                      <span>{Math.max(0, selectedFacture.totalTtc - selectedFacture.amountPaid).toFixed(2)} €</span>
+                    </div>
+                  )}
                 </div>
 
+                {/* Payment timeline */}
                 {selectedFacture.payments && selectedFacture.payments.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-[#8B8FA8] uppercase tracking-wide">Paiements</p>
-                    {selectedFacture.payments.map((payment: Payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex justify-between items-center text-sm p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"
-                      >
-                        <span className="text-emerald-400">
-                          {METHOD_LABELS[payment.method]} ·{' '}
-                          {new Date(payment.paidAt).toLocaleDateString('fr-FR')}
-                          {payment.notes && ` · ${payment.notes}`}
-                        </span>
-                        <span className="font-semibold text-emerald-400">
-                          +{payment.amount.toFixed(2)} €
-                        </span>
-                      </div>
-                    ))}
-                    <div className="flex justify-end text-sm text-[#8B8FA8]">
-                      Reste dû:{' '}
-                      <strong className="ml-1 text-white">
-                        {Math.max(0, selectedFacture.totalTtc - selectedFacture.amountPaid).toFixed(2)} €
-                      </strong>
+                  <div className="p-4 border-b border-[#2A2D3A]">
+                    <p className="text-[10px] font-semibold text-[#8B8FA8]/60 uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <History className="w-3 h-3" /> Historique
+                    </p>
+                    <div className="space-y-1.5">
+                      {selectedFacture.payments.map((payment: Payment) => (
+                        <div key={payment.id} className="flex justify-between items-center text-xs">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                            <span className="text-[#8B8FA8]">
+                              {METHOD_LABELS[payment.method]} · {new Date(payment.paidAt).toLocaleDateString('fr-FR')}
+                            </span>
+                          </div>
+                          <span className="font-semibold text-emerald-400">+{payment.amount.toFixed(2)} €</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* Action buttons in detail panel */}
-                <div className="flex gap-2 pt-2 border-t border-[#2A2D3A]">
-                  <button
-                    onClick={() => handleDownloadPdf(selectedFacture)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
-                  >
-                    <FileDown className="w-3.5 h-3.5" />
-                    Télécharger PDF
-                  </button>
-                  <button
-                    onClick={() => handleOpenEmailModal(selectedFacture)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#FF6B2B]/30 text-xs font-medium text-[#FF6B2B] hover:bg-[#FF6B2B]/10 transition-colors"
-                  >
-                    <Mail className="w-3.5 h-3.5" />
-                    Envoyer par email
-                  </button>
-                </div>
+                {/* Primary action */}
+                <div className="p-4 space-y-2">
+                  {(selectedFacture.status === 'unpaid' || selectedFacture.status === 'partial') && (
+                    <button
+                      onClick={() => setPaymentModal(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FF6B2B] text-white rounded-xl text-sm font-semibold hover:bg-[#E55A1F] transition-colors shadow-[0_0_16px_rgba(255,107,43,0.25)]"
+                    >
+                      <Euro className="w-4 h-4" />
+                      Marquer payée
+                    </button>
+                  )}
 
-                {(selectedFacture.status === 'unpaid' || selectedFacture.status === 'partial') && (
-                  <button
-                    onClick={() => setPaymentModal(true)}
-                    className="w-full px-4 py-3 bg-[#FF6B2B] text-white rounded-xl text-sm font-medium hover:bg-[#E55A1F] transition-colors"
-                  >
-                    Enregistrer un paiement
-                  </button>
-                )}
+                  {/* Secondary actions grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleDownloadPdf(selectedFacture)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <FileDown className="w-3.5 h-3.5" /> PDF
+                    </button>
+                    <button
+                      onClick={() => handleOpenEmailModal(selectedFacture)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Email
+                    </button>
+                    {FLAGS.FACTUR_X_ENABLED && (
+                      <button
+                        onClick={() => window.open(`/api/factures/${selectedFacture.id}/pdf`, '_blank')}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-500/30 text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                      >
+                        <Shield className="w-3.5 h-3.5" /> Factur-X
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void handleDuplicate(selectedFacture)}
+                      disabled={isDuplicating}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2D3A] text-xs font-medium text-[#8B8FA8] hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Dupliquer
+                    </button>
+                  </div>
+
+                  {selectedFacture.status !== 'cancelled' && selectedFacture.status !== 'paid' && (
+                    <button
+                      onClick={() => void handleCancelFacture(selectedFacture)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Ban className="w-3.5 h-3.5" /> Annuler la facture
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="sticky top-4 bg-[#1A1D27] rounded-xl border border-[#2A2D3A] border-dashed p-8 flex flex-col items-center justify-center text-center gap-2">
+                <FileDown className="w-8 h-8 text-[#2A2D3A]" />
+                <p className="text-xs text-[#8B8FA8]">Sélectionnez une facture pour voir les détails</p>
               </div>
             )}
           </div>
