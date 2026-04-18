@@ -4,7 +4,7 @@
 
 - Seed demo data: `npx tsx scripts/seed-demo.ts`
 - Ensure Vercel deployment is green
-- Open `https://mecanigo.vercel.app` in a fresh incognito window
+- Open `https://garage-saas-one.vercel.app` in a fresh incognito window
 - Keep a second tab on `/api/health` for live status
 
 ---
@@ -59,11 +59,12 @@
 3. "Le XML CII BASIC est attaché au PDF — les comptables adorent ça"
 
 ### WOW #6: Marquer payée + email automatique
-1. Click "Marquer payée" on FAC-0002
-2. Fill amount 100€, mode Virement
-3. Submit → status changes to "Payée"
-4. Background: automation triggers → email comptable avec PDF en pièce jointe
-5. GSheet append (if configured): "Le garage peut voir toutes ses factures payées en temps réel dans un Google Sheet"
+1. Navigate to **Factures** → find **FAC-2026-9999** (Martin Dupont, 245,00€, "Non payée")
+2. Click the card → sticky right panel opens
+3. Click **"Marquer payée"** → modal: amount 245€, mode Virement → **Valider**
+4. Status changes to "Payée" — confetti toast
+5. Background (non-bloquant): automation → email comptable avec PDF en pièce jointe
+6. GSheet append (if configured): "Le garage voit toutes ses factures payées en temps réel dans un Google Sheet"
 
 ---
 
