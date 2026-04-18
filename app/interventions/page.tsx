@@ -4,8 +4,9 @@ import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, Columns3 } from 'lucide-react';
 import InterventionSelect from '../components/InterventionSelect';
+import KanbanBoard from './KanbanBoard';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { interventionsAPI, clientsAPI } from '../../lib/api';
@@ -50,6 +51,12 @@ function InterventionsContent() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [filter, setFilter] = useState<string>('Tous');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'kanban'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('mg_int_view') as 'list' | 'kanban') ?? 'list';
+    }
+    return 'list';
+  });
 
   const [interventionForm, setInterventionForm] = useState({
     clientId: '', vehicle: '', type: '', price: '', date: new Date().toISOString().slice(0, 10),
@@ -118,6 +125,34 @@ function InterventionsContent() {
     }
   };
 
+  const handleMoveCard = async (intervention: Intervention, newStatus: IntStatus) => {
+    setUpdatingId(intervention.id);
+    try {
+      const res = await fetch('/api/intervention/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          interventionId: intervention.id,
+          garageId,
+          newStatus,
+          clientEmail: getClientEmail(intervention.clientId),
+          clientName: getClientName(intervention.clientId),
+          vehicle: intervention.type,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        throw new Error(d.error ?? 'Erreur mise à jour');
+      }
+      setInterventions(prev => prev.map(i => i.id === intervention.id ? { ...i, status: newStatus as Intervention['status'] } : i));
+      showToast(newStatus === 'Prêt' ? '✅ Véhicule prêt — email client envoyé' : `Statut → ${newStatus}`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleCreateIntervention = async () => {
     if (!interventionForm.clientId || !interventionForm.vehicle || !interventionForm.type || !interventionForm.price || !interventionForm.date) {
       showToast('Tous les champs sont nécessaires', 'error');
@@ -176,13 +211,32 @@ function InterventionsContent() {
             <h1 className="text-2xl md:text-3xl font-semibold text-white">Interventions</h1>
             <p className="text-sm text-[#8B8FA8] mt-1">Suivez les interventions en temps réel</p>
           </div>
-          <button
-            onClick={() => setIsNewInterventionOpen(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors font-medium text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nouvelle intervention
-          </button>
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center bg-[#0F1117] border border-[#2A2D3A] rounded-lg p-0.5">
+              <button
+                onClick={() => { setView('list'); localStorage.setItem('mg_int_view', 'list'); }}
+                className={`p-1.5 rounded ${view === 'list' ? 'bg-[#FF6B2B]/20 text-[#FF6B2B]' : 'text-[#8B8FA8] hover:text-white'} transition-colors`}
+                title="Vue liste"
+              >
+                <LayoutList className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => { setView('kanban'); localStorage.setItem('mg_int_view', 'kanban'); }}
+                className={`p-1.5 rounded ${view === 'kanban' ? 'bg-[#FF6B2B]/20 text-[#FF6B2B]' : 'text-[#8B8FA8] hover:text-white'} transition-colors`}
+                title="Vue kanban"
+              >
+                <Columns3 className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => setIsNewInterventionOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6B2B] text-white rounded-lg hover:bg-[#E55A1F] transition-colors font-medium text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Nouvelle intervention
+            </button>
+          </div>
         </div>
       </header>
 
@@ -225,18 +279,28 @@ function InterventionsContent() {
           ))}
         </section>
 
-        {/* Cards */}
-        {isLoading ? (
+        {/* Kanban view */}
+        {!isLoading && view === 'kanban' && (
+          <KanbanBoard
+            interventions={interventions}
+            clients={clients}
+            updatingId={updatingId}
+            onMoveCard={(card, status) => { void handleMoveCard(card, status); }}
+          />
+        )}
+
+        {/* List view */}
+        {view === 'list' && isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-36 bg-[#1A1D27] border border-[#2A2D3A] rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : displayed.length === 0 ? (
+        ) : view === 'list' && displayed.length === 0 ? (
           <div className="text-center py-16 text-[#8B8FA8] text-sm">
             Aucune intervention {filter !== 'Tous' ? `"${filter}"` : ''}
           </div>
-        ) : (
+        ) : view === 'list' ? (
           <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {displayed.map((intervention) => {
               const next = nextStatus(intervention.status);
@@ -297,7 +361,7 @@ function InterventionsContent() {
               );
             })}
           </section>
-        )}
+        ) : null}
 
         <div className="bg-[#1A1D27] rounded-xl border border-[#2A2D3A] p-4 text-sm text-[#8B8FA8]">
           <span className="font-semibold text-white">{displayed.length}</span> intervention{displayed.length !== 1 ? 's' : ''} affichée{displayed.length !== 1 ? 's' : ''}
