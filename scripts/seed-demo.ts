@@ -241,6 +241,23 @@ async function main() {
   if (aErr) { console.error('❌ Factures achats insert failed:', aErr.message); }
   else console.log('✅ 2 factures achats created');
 
+  // ── 7b. WOW facture for live demo moment ─────────────────────────────────
+
+  const { data: wowFac, error: wowErr } = await db.from('factures').insert({
+    garage_id: garageId,
+    client_id: clients[0].id,  // Martin Dupont
+    display_ref: 'FAC-2026-9999',
+    total_ht: 204.17,
+    tva_rate: 20,
+    total_ttc: 245.00,
+    amount_paid: 0,
+    status: 'unpaid',
+    notes: 'DÉMO — clique ici pendant la présentation',
+  }).select('id, display_ref').single();
+
+  if (wowErr) { console.error('❌ WOW facture insert failed:', wowErr.message); }
+  else console.log(`✅ WOW demo facture created: ${wowFac?.display_ref} (id: ${wowFac?.id})`);
+
   // ── 8. Livre de police (1 entry) ─────────────────────────────────────────
 
   const ldpEntry = {
@@ -262,7 +279,7 @@ async function main() {
   else console.log('✅ 1 livre de police entry created');
 
   console.log('\n🎉 Demo seed complete!\n');
-  console.log('   15 clients | 5 interventions | 3 factures | 4 stock pieces | 2 achats | 1 LDP entry');
+  console.log('   15 clients | 5 interventions | 3 factures + 1 WOW demo (FAC-2026-9999) | 4 stock | 2 achats | 1 LDP');
   console.log('   Credentials: use any Clerk-authenticated user in the garage\n');
 }
 

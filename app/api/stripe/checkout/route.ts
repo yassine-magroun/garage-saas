@@ -2,8 +2,6 @@ import { auth } from '@clerk/nextjs/server';
 import Stripe from 'stripe';
 import { supabase } from '../../../../lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 interface CheckoutBody {
   priceId: string;
   garageId: string;
@@ -17,6 +15,11 @@ interface GarageRow {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return Response.json({ error: 'Stripe non configuré' }, { status: 503 });
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
   const { userId } = await auth();
   if (!userId) {
     return Response.json({ error: 'Non authentifié' }, { status: 401 });

@@ -7,7 +7,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // Disable Next.js body parsing so we can read the raw buffer for signature verification
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,10 @@ function planFromPriceId(priceId: string): string | null {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  if (!stripe) {
+    return Response.json({ error: 'Stripe non configuré' }, { status: 503 });
+  }
+
   const sig = req.headers.get('stripe-signature');
   const secret = process.env.STRIPE_WEBHOOK_SECRET!;
 

@@ -126,7 +126,17 @@ export default function FacturesPage() {
       );
       setPaymentModal(false);
       setPaymentForm({ amount: '', method: 'cash', notes: '' });
-      showToast(`Paiement de ${payment.amount.toFixed(2)} € enregistré`, 'success');
+
+      if (updated.status === 'paid') {
+        fetch('/api/factures/trigger-paid-automation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ facture_id: selectedFacture.id }),
+        }).catch(() => { /* silent — automation failure must not block UI */ });
+        showToast(`Paiement de ${payment.amount.toFixed(2)} € enregistré`, 'success');
+      } else {
+        showToast(`Paiement de ${payment.amount.toFixed(2)} € enregistré`, 'success');
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erreur ajout paiement', 'error');
     } finally {
