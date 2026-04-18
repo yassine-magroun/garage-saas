@@ -4,8 +4,9 @@ import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
-import { Plus, ChevronRight, LayoutList, Columns3 } from 'lucide-react';
+import { Plus, ChevronRight, LayoutList, Columns3, Wrench } from 'lucide-react';
 import InterventionSelect from '../components/InterventionSelect';
+import EmptyState from '../components/EmptyState';
 import KanbanBoard from './KanbanBoard';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -297,9 +298,12 @@ function InterventionsContent() {
             ))}
           </div>
         ) : view === 'list' && displayed.length === 0 ? (
-          <div className="text-center py-16 text-[#8B8FA8] text-sm">
-            Aucune intervention {filter !== 'Tous' ? `"${filter}"` : ''}
-          </div>
+          <EmptyState
+            icon={Wrench}
+            title="Aucune intervention"
+            description={filter !== 'Tous' ? `Aucune intervention avec le statut "${filter}".` : 'Créez votre première intervention pour commencer.'}
+            action={{ label: 'Nouvelle intervention', onClick: () => setIsNewInterventionOpen(true) }}
+          />
         ) : view === 'list' ? (
           <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {displayed.map((intervention) => {

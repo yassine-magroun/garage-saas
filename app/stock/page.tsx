@@ -5,6 +5,7 @@ import AuthGuard from '../components/AuthGuard';
 import PageLayout from '../components/PageLayout';
 import Toast from '../components/Toast';
 import { Package, Plus, Pencil, Trash2, AlertTriangle, CheckCircle, XCircle, X } from 'lucide-react';
+import EmptyState from '../components/EmptyState';
 import { piecesStockAPI } from '../../lib/api';
 import { getGarageId } from '../../lib/garage';
 import type { Piece } from '../../lib/types';
@@ -244,10 +245,12 @@ export default function StockPage() {
             {isLoading ? (
               <div className="p-8 text-center text-sm text-[#8B8FA8]">Chargement…</div>
             ) : filtered.length === 0 ? (
-              <div className="p-8 text-center">
-                <Package className="w-10 h-10 text-[#2A2D3A] mx-auto mb-3" />
-                <p className="text-sm text-[#8B8FA8]">Aucune pièce trouvée.</p>
-              </div>
+              <EmptyState
+                icon={Package}
+                title="Aucune pièce trouvée"
+                description="Ajoutez des pièces à votre stock pour les retrouver ici."
+                compact
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
