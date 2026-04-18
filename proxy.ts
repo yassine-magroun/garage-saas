@@ -1,17 +1,14 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-const isPublicRoute = createRouteMatcher([
-  '/auth/login(.*)',
-  '/auth/signup(.*)',
-  '/onboarding(.*)',
-  '/landing(.*)',
-  '/legal(.*)',
-  '/api/garage/create(.*)',
-  '/api/garage/me(.*)',
+// App pages use client-side AuthGuard for protection.
+// Only protect sensitive API routes server-side.
+const isProtectedApiRoute = createRouteMatcher([
+  '/api/user/(.*)',
+  '/api/garage/(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
+  if (isProtectedApiRoute(request)) {
     await auth.protect();
   }
 });
